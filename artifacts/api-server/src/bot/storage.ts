@@ -25,6 +25,26 @@ export interface ToxicFilterConfig {
   customWords: string[];
 }
 
+export interface WelcomeConfig {
+  enabled: boolean;
+  channelId?: string;
+  message?: string;
+  dmUser: boolean;
+}
+
+export interface VerifyConfig {
+  enabled: boolean;
+  roleId?: string;
+  channelId?: string;
+}
+
+export interface RulesConfig {
+  enabled: boolean;
+  acceptRoleId?: string;
+  channelId?: string;
+  rules: string[];
+}
+
 export interface GuildConfig {
   ticketCategoryId?: string;
   ticketLogChannelId?: string;
@@ -37,6 +57,9 @@ export interface GuildConfig {
   raidProtection: RaidProtectionConfig;
   nukeProtection: NukeProtectionConfig;
   toxicFilter: ToxicFilterConfig;
+  welcome: WelcomeConfig;
+  verify: VerifyConfig;
+  rules: RulesConfig;
 }
 
 export interface TicketData {
@@ -83,6 +106,17 @@ function defaultGuildConfig(): GuildConfig {
       enabled: false,
       timeoutMinutes: 10,
       customWords: [],
+    },
+    welcome: {
+      enabled: false,
+      dmUser: false,
+    },
+    verify: {
+      enabled: false,
+    },
+    rules: {
+      enabled: false,
+      rules: [],
     },
   };
 }

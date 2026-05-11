@@ -10,6 +10,8 @@ import {
 import { setupCommand, handleSetupCommand } from "./commands/setup.js";
 import { ticketCommand, handleTicketCommand } from "./commands/ticket.js";
 import { panelCommand, handlePanelCommand } from "./commands/panel.js";
+import { verifyCommand, handleVerifyCommand } from "./commands/verify.js";
+import { rulesCommand, handleRulesCommand } from "./commands/rules.js";
 import {
   handleCreateTicket,
   handleCloseTicket,
@@ -23,11 +25,16 @@ import {
 } from "./features/nuke-protection.js";
 import { handleToxicMessage } from "./features/toxic-filter.js";
 import { startStatsUpdater } from "./features/server-stats.js";
+import { handleMemberWelcome } from "./features/welcome.js";
+import { handleVerifyButton } from "./features/verify.js";
+import { handleRulesAccept } from "./features/rules.js";
 
 const commands = [
   setupCommand.toJSON(),
   ticketCommand.toJSON(),
   panelCommand.toJSON(),
+  verifyCommand.toJSON(),
+  rulesCommand.toJSON(),
 ];
 
 export async function startBot(): Promise<void> {
@@ -62,25 +69,24 @@ export async function startBot(): Promise<void> {
 
     try {
       if (guildId) {
-        // Guild commands appear instantly
         await rest.put(
           Routes.applicationGuildCommands(clientId, guildId),
           { body: commands },
         );
-        console.log(`[Bot] Slash commands registered instantly to guild ${guildId}.`);
+        console.log(`[Bot] ${commands.length} commands registered instantly to guild ${guildId}.`);
       } else {
-        // Fallback: global (up to 1 hour delay)
         await rest.put(Routes.applicationCommands(clientId), { body: commands });
-        console.log("[Bot] Slash commands registered globally (may take up to 1 hour).");
+        console.log("[Bot] Commands registered globally (up to 1h delay).");
       }
     } catch (err) {
-      console.error("[Bot] Failed to register slash commands:", err);
+      console.error("[Bot] Failed to register commands:", err);
     }
 
     startStatsUpdater(readyClient);
-    console.log("[Bot] Stats updater started.");
+    console.log("[Bot] Ready.");
   });
 
+  // ─── Interactions ────────────────────────────────────────────────────────────
   client.on(Events.InteractionCreate, async (interaction) => {
     try {
       if (interaction.isChatInputCommand()) {
@@ -88,58 +94,56 @@ export async function startBot(): Promise<void> {
         if (commandName === "setup") await handleSetupCommand(interaction);
         else if (commandName === "ticket") await handleTicketCommand(interaction);
         else if (commandName === "panel") await handlePanelCommand(interaction);
+        else if (commandName === "verify") await handleVerifyCommand(interaction);
+        else if (commandName === "rules") await handleRulesCommand(interaction);
         return;
       }
 
       if (interaction.isButton()) {
         const { customId } = interaction;
-        if (customId === "ticket_create") {
-          await handleCreateTicket(interaction);
-        } else if (customId === "ticket_close") {
-          await handleCloseTicket(interaction);
-        } else if (customId.startsWith("feedback_")) {
+        if (customId === "ticket_create") await handleCreateTicket(interaction);
+        else if (customId === "ticket_close") await handleCloseTicket(interaction);
+        else if (customId === "verify_click") await handleVerifyButton(interaction);
+        else if (customId === "rules_accept") await handleRulesAccept(interaction);
+        else if (customId.startsWith("feedback_")) {
           const rating = parseInt(customId.split("_")[1] ?? "0", 10);
-          if (rating >= 1 && rating <= 5) {
-            await handleFeedbackSubmit(interaction, rating);
-          }
+          if (rating >= 1 && rating <= 5) await handleFeedbackSubmit(interaction, rating);
         }
       }
     } catch (err) {
-      console.error("[Bot] Unhandled interaction error:", err);
+      console.error("[Bot] Interaction error:", err);
     }
   });
 
+  // ─── Member join: welcome + raid protection ──────────────────────────────────
   client.on(Events.GuildMemberAdd, async (member) => {
-    await handleRaidMemberAdd(member).catch((err) =>
-      console.error("[Bot] Raid protection error:", err),
-    );
+    await Promise.allSettled([
+      handleMemberWelcome(member),
+      handleRaidMemberAdd(member),
+    ]);
   });
 
+  // ─── Messages: toxic filter ──────────────────────────────────────────────────
   client.on(Events.MessageCreate, async (message) => {
     if (message.author.bot) return;
-    await handleToxicMessage(message).catch((err) =>
-      console.error("[Bot] Toxic filter error:", err),
-    );
+    await handleToxicMessage(message).catch(() => null);
   });
 
+  // ─── Channel delete: nuke protection ────────────────────────────────────────
   client.on(Events.ChannelDelete, async (channel) => {
     if (channel instanceof GuildChannel) {
-      await handleChannelDelete(channel).catch((err) =>
-        console.error("[Bot] Nuke protection (channel) error:", err),
-      );
+      await handleChannelDelete(channel).catch(() => null);
     }
   });
 
+  // ─── Role delete: nuke protection ───────────────────────────────────────────
   client.on(Events.GuildRoleDelete, async (role) => {
-    await handleRoleDelete(role).catch((err) =>
-      console.error("[Bot] Nuke protection (role) error:", err),
-    );
+    await handleRoleDelete(role).catch(() => null);
   });
 
+  // ─── Mass ban: nuke protection ───────────────────────────────────────────────
   client.on(Events.GuildBanAdd, async (ban) => {
-    await handleGuildBan(ban.guild).catch((err) =>
-      console.error("[Bot] Nuke protection (ban) error:", err),
-    );
+    await handleGuildBan(ban.guild).catch(() => null);
   });
 
   try {
@@ -150,12 +154,11 @@ export async function startBot(): Promise<void> {
       console.error(
         "[Bot] ❌  PRIVILEGED INTENTS NOT ENABLED.\n" +
           "       Go to: https://discord.com/developers/applications\n" +
-          "       → Select your application → Bot → Privileged Gateway Intents\n" +
-          "       → Enable: 'Server Members Intent' AND 'Message Content Intent'\n" +
-          "       → Save Changes, then restart the server.",
+          "       → Bot → Privileged Gateway Intents\n" +
+          "       → Enable: 'Server Members Intent' AND 'Message Content Intent'",
       );
     } else if (msg.includes("TOKEN_INVALID") || msg.includes("An invalid token")) {
-      console.error("[Bot] ❌  Invalid DISCORD_TOKEN. Check your bot token in the Developer Portal.");
+      console.error("[Bot] ❌  Invalid DISCORD_TOKEN.");
     } else {
       throw err;
     }
