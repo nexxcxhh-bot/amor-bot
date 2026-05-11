@@ -132,5 +132,22 @@ export async function startBot(): Promise<void> {
     );
   });
 
-  await client.login(token);
+  try {
+    await client.login(token);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes("disallowed intents")) {
+      console.error(
+        "[Bot] ❌  PRIVILEGED INTENTS NOT ENABLED.\n" +
+          "       Go to: https://discord.com/developers/applications\n" +
+          "       → Select your application → Bot → Privileged Gateway Intents\n" +
+          "       → Enable: 'Server Members Intent' AND 'Message Content Intent'\n" +
+          "       → Save Changes, then restart the server.",
+      );
+    } else if (msg.includes("TOKEN_INVALID") || msg.includes("An invalid token")) {
+      console.error("[Bot] ❌  Invalid DISCORD_TOKEN. Check your bot token in the Developer Portal.");
+    } else {
+      throw err;
+    }
+  }
 }
