@@ -1,0 +1,27 @@
+{
+  "guilds": {
+    "1492604770329034803": {
+      "raidProtection": {
+        "enabled": false,
+        "joinThreshold": 10,
+        "timeWindowSeconds": 10,
+        "action": "kick"
+      },
+      "nukeProtection": {
+        "enabled": false,
+        "channelDeleteThreshold": 3,
+        "roleDeleteThreshold": 2,
+        "banThreshold": 5,
+        "action": "kick"
+      },
+      "toxicFilter": {
+        "enabled": false,
+        "timeoutMinutes": 10,
+        "customWords": []
+      }
+    }
+  },
+  "tickets": {},
+  "ticketCounters": {},
+  "pendingFeedback": {}
+}
