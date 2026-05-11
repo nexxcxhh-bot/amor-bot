@@ -80,11 +80,25 @@ export interface PendingFeedback {
   ticketNumber: number;
 }
 
+export interface GiveawayData {
+  messageId: string;
+  channelId: string;
+  guildId: string;
+  prize: string;
+  winners: number;
+  endsAt: number;
+  hostId: string;
+  ended: boolean;
+  winnerIds: string[];
+}
+
 interface StorageData {
   guilds: Record<string, GuildConfig>;
   tickets: Record<string, TicketData>;
   ticketCounters: Record<string, number>;
   pendingFeedback: Record<string, PendingFeedback>;
+  giveaways: Record<string, GiveawayData>;
+  giveawayEntries: Record<string, string[]>;
 }
 
 function defaultGuildConfig(): GuildConfig {
@@ -123,12 +137,12 @@ function defaultGuildConfig(): GuildConfig {
 
 function loadData(): StorageData {
   if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
-  if (!existsSync(DATA_FILE))
-    return { guilds: {}, tickets: {}, ticketCounters: {}, pendingFeedback: {} };
+  const empty: StorageData = { guilds: {}, tickets: {}, ticketCounters: {}, pendingFeedback: {}, giveaways: {}, giveawayEntries: {} };
+  if (!existsSync(DATA_FILE)) return empty;
   try {
     return JSON.parse(readFileSync(DATA_FILE, "utf-8")) as StorageData;
   } catch {
-    return { guilds: {}, tickets: {}, ticketCounters: {}, pendingFeedback: {} };
+    return empty;
   }
 }
 

@@ -6,12 +6,15 @@ import {
   Routes,
   Partials,
   GuildChannel,
+  StringSelectMenuInteraction,
 } from "discord.js";
 import { setupCommand, handleSetupCommand } from "./commands/setup.js";
 import { ticketCommand, handleTicketCommand } from "./commands/ticket.js";
 import { panelCommand, handlePanelCommand } from "./commands/panel.js";
 import { verifyCommand, handleVerifyCommand } from "./commands/verify.js";
 import { rulesCommand, handleRulesCommand } from "./commands/rules.js";
+import { giveawayCommand, handleGiveawayCommand } from "./commands/giveaway.js";
+import { adminCommand, handleAdminCommand, handleAdminInteraction } from "./commands/admin.js";
 import {
   handleCreateTicket,
   handleCloseTicket,
@@ -28,13 +31,16 @@ import { startStatsUpdater } from "./features/server-stats.js";
 import { handleMemberWelcome } from "./features/welcome.js";
 import { handleVerifyButton } from "./features/verify.js";
 import { handleRulesAccept } from "./features/rules.js";
+import { handleGiveawayEnter, restoreGiveaways } from "./features/giveaway.js";
 
 const commands = [
+  adminCommand.toJSON(),
   setupCommand.toJSON(),
   ticketCommand.toJSON(),
   panelCommand.toJSON(),
   verifyCommand.toJSON(),
   rulesCommand.toJSON(),
+  giveawayCommand.toJSON(),
 ];
 
 export async function startBot(): Promise<void> {
@@ -42,9 +48,7 @@ export async function startBot(): Promise<void> {
   const clientId = process.env["DISCORD_CLIENT_ID"];
 
   if (!token || !clientId) {
-    console.warn(
-      "[Bot] DISCORD_TOKEN or DISCORD_CLIENT_ID not set — bot will not start.",
-    );
+    console.warn("[Bot] DISCORD_TOKEN or DISCORD_CLIENT_ID not set — bot will not start.");
     return;
   }
 
@@ -66,45 +70,76 @@ export async function startBot(): Promise<void> {
     console.log(`[Bot] Logged in as ${readyClient.user.tag}`);
 
     const guildId = process.env["DISCORD_GUILD_ID"];
-
     try {
       if (guildId) {
-        await rest.put(
-          Routes.applicationGuildCommands(clientId, guildId),
-          { body: commands },
-        );
+        await rest.put(Routes.applicationGuildCommands(clientId, guildId), { body: commands });
         console.log(`[Bot] ${commands.length} commands registered instantly to guild ${guildId}.`);
       } else {
         await rest.put(Routes.applicationCommands(clientId), { body: commands });
-        console.log("[Bot] Commands registered globally (up to 1h delay).");
+        console.log("[Bot] Commands registered globally.");
       }
     } catch (err) {
       console.error("[Bot] Failed to register commands:", err);
     }
 
     startStatsUpdater(readyClient);
+    restoreGiveaways(readyClient);
     console.log("[Bot] Ready.");
   });
 
-  // ─── Interactions ────────────────────────────────────────────────────────────
+  // ─── Interactions ─────────────────────────────────────────────────────────────
   client.on(Events.InteractionCreate, async (interaction) => {
     try {
+      // Slash commands
       if (interaction.isChatInputCommand()) {
         const { commandName } = interaction;
-        if (commandName === "setup") await handleSetupCommand(interaction);
-        else if (commandName === "ticket") await handleTicketCommand(interaction);
-        else if (commandName === "panel") await handlePanelCommand(interaction);
-        else if (commandName === "verify") await handleVerifyCommand(interaction);
-        else if (commandName === "rules") await handleRulesCommand(interaction);
+        if (commandName === "admin")    await handleAdminCommand(interaction);
+        else if (commandName === "setup")    await handleSetupCommand(interaction);
+        else if (commandName === "ticket")   await handleTicketCommand(interaction);
+        else if (commandName === "panel")    await handlePanelCommand(interaction);
+        else if (commandName === "verify")   await handleVerifyCommand(interaction);
+        else if (commandName === "rules")    await handleRulesCommand(interaction);
+        else if (commandName === "giveaway") await handleGiveawayCommand(interaction);
         return;
       }
 
+      // Admin panel — select menu
+      if (interaction.isStringSelectMenu() && interaction.customId === "admin_nav") {
+        await handleAdminInteraction(interaction as StringSelectMenuInteraction);
+        return;
+      }
+
+      // Admin panel — modal submit
+      if (interaction.isModalSubmit() && interaction.customId.startsWith("admin_modal_")) {
+        await handleAdminInteraction(interaction);
+        return;
+      }
+
+      // Buttons
       if (interaction.isButton()) {
         const { customId } = interaction;
+
+        // Admin panel buttons
+        if (
+          customId === "admin_back" ||
+          customId === "admin_create_stats" ||
+          customId === "admin_test_welcome" ||
+          customId.startsWith("admin_edit_")
+        ) {
+          await handleAdminInteraction(interaction);
+          return;
+        }
+
+        // Ticket
         if (customId === "ticket_create") await handleCreateTicket(interaction);
         else if (customId === "ticket_close") await handleCloseTicket(interaction);
+        // Verify
         else if (customId === "verify_click") await handleVerifyButton(interaction);
+        // Rules
         else if (customId === "rules_accept") await handleRulesAccept(interaction);
+        // Giveaway
+        else if (customId === "giveaway_enter") await handleGiveawayEnter(interaction);
+        // Feedback
         else if (customId.startsWith("feedback_")) {
           const rating = parseInt(customId.split("_")[1] ?? "0", 10);
           if (rating >= 1 && rating <= 5) await handleFeedbackSubmit(interaction, rating);
@@ -115,7 +150,7 @@ export async function startBot(): Promise<void> {
     }
   });
 
-  // ─── Member join: welcome + raid protection ──────────────────────────────────
+  // ─── Member join ──────────────────────────────────────────────────────────────
   client.on(Events.GuildMemberAdd, async (member) => {
     await Promise.allSettled([
       handleMemberWelcome(member),
@@ -123,25 +158,25 @@ export async function startBot(): Promise<void> {
     ]);
   });
 
-  // ─── Messages: toxic filter ──────────────────────────────────────────────────
+  // ─── Messages ─────────────────────────────────────────────────────────────────
   client.on(Events.MessageCreate, async (message) => {
     if (message.author.bot) return;
     await handleToxicMessage(message).catch(() => null);
   });
 
-  // ─── Channel delete: nuke protection ────────────────────────────────────────
+  // ─── Channel delete ───────────────────────────────────────────────────────────
   client.on(Events.ChannelDelete, async (channel) => {
     if (channel instanceof GuildChannel) {
       await handleChannelDelete(channel).catch(() => null);
     }
   });
 
-  // ─── Role delete: nuke protection ───────────────────────────────────────────
+  // ─── Role delete ──────────────────────────────────────────────────────────────
   client.on(Events.GuildRoleDelete, async (role) => {
     await handleRoleDelete(role).catch(() => null);
   });
 
-  // ─── Mass ban: nuke protection ───────────────────────────────────────────────
+  // ─── Mass ban ─────────────────────────────────────────────────────────────────
   client.on(Events.GuildBanAdd, async (ban) => {
     await handleGuildBan(ban.guild).catch(() => null);
   });
@@ -153,9 +188,8 @@ export async function startBot(): Promise<void> {
     if (msg.includes("disallowed intents")) {
       console.error(
         "[Bot] ❌  PRIVILEGED INTENTS NOT ENABLED.\n" +
-          "       Go to: https://discord.com/developers/applications\n" +
-          "       → Bot → Privileged Gateway Intents\n" +
-          "       → Enable: 'Server Members Intent' AND 'Message Content Intent'",
+          "       → discord.com/developers/applications → Bot → Privileged Gateway Intents\n" +
+          "       → Enable: Server Members Intent + Message Content Intent",
       );
     } else if (msg.includes("TOKEN_INVALID") || msg.includes("An invalid token")) {
       console.error("[Bot] ❌  Invalid DISCORD_TOKEN.");

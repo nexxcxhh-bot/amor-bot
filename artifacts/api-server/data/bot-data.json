@@ -18,6 +18,11 @@
         "enabled": false,
         "timeoutMinutes": 10,
         "customWords": []
+      },
+      "welcome": {
+        "enabled": true,
+        "channelId": "1492604771171827840",
+        "dmUser": false
       }
     }
   },
