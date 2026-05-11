@@ -58,11 +58,21 @@ export async function startBot(): Promise<void> {
   client.once(Events.ClientReady, async (readyClient) => {
     console.log(`[Bot] Logged in as ${readyClient.user.tag}`);
 
+    const guildId = process.env["DISCORD_GUILD_ID"];
+
     try {
-      await rest.put(Routes.applicationCommands(clientId), {
-        body: commands,
-      });
-      console.log("[Bot] Slash commands registered globally.");
+      if (guildId) {
+        // Guild commands appear instantly
+        await rest.put(
+          Routes.applicationGuildCommands(clientId, guildId),
+          { body: commands },
+        );
+        console.log(`[Bot] Slash commands registered instantly to guild ${guildId}.`);
+      } else {
+        // Fallback: global (up to 1 hour delay)
+        await rest.put(Routes.applicationCommands(clientId), { body: commands });
+        console.log("[Bot] Slash commands registered globally (may take up to 1 hour).");
+      }
     } catch (err) {
       console.error("[Bot] Failed to register slash commands:", err);
     }
