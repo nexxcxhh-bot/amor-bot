@@ -13,31 +13,17 @@ import { ticketPanelEmbed, successEmbed, errorEmbed } from "../utils/embeds.js";
 
 export const ticketCommand = new SlashCommandBuilder()
   .setName("ticket")
-  .setDescription("Ticket system commands")
+  .setDescription("Ticket-System")
   .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels)
   .addSubcommand((sub) =>
     sub
       .setName("panel")
-      .setDescription("Post the ticket creation panel in a channel")
+      .setDescription("Ticket-Panel in einem Channel posten")
       .addChannelOption((opt) =>
         opt
           .setName("channel")
-          .setDescription("Channel to post the panel in")
+          .setDescription("Channel (Standard: aktueller Channel)")
           .addChannelTypes(ChannelType.GuildText)
-          .setRequired(true),
-      )
-      .addStringOption((opt) =>
-        opt
-          .setName("title")
-          .setDescription("Panel title (default: Support Tickets)")
-          .setMaxLength(256)
-          .setRequired(false),
-      )
-      .addStringOption((opt) =>
-        opt
-          .setName("description")
-          .setDescription("Panel description text")
-          .setMaxLength(2000)
           .setRequired(false),
       ),
   );
@@ -50,20 +36,13 @@ export async function handleTicketCommand(
   const sub = interaction.options.getSubcommand();
 
   if (sub === "panel") {
-    const channelOption = interaction.options.getChannel("channel", true);
-    const title =
-      interaction.options.getString("title") ?? "Support Tickets";
-    const description =
-      interaction.options.getString("description") ??
-      "Need help or have a question? Our support team is ready to assist you!\n\nClick the button below to open a private support ticket.";
-
-    const targetChannel = interaction.guild.channels.cache.get(
-      channelOption.id,
-    ) as TextChannel | undefined;
+    const channelOption = interaction.options.getChannel("channel");
+    const targetChannelId = channelOption?.id ?? interaction.channelId;
+    const targetChannel = interaction.guild.channels.cache.get(targetChannelId) as TextChannel | undefined;
 
     if (!targetChannel || !("send" in targetChannel)) {
       await interaction.reply({
-        embeds: [errorEmbed("Could not find or send to that channel.")],
+        embeds: [errorEmbed("Channel nicht gefunden oder keine Schreibrechte.")],
         flags: MessageFlags.Ephemeral,
       });
       return;
@@ -72,27 +51,23 @@ export async function handleTicketCommand(
     const openButton = new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
         .setCustomId("ticket_create")
-        .setLabel("🎫  Open a Ticket")
+        .setLabel("🎫  Ticket erstellen")
         .setStyle(ButtonStyle.Primary),
     );
 
     try {
       await targetChannel.send({
-        embeds: [ticketPanelEmbed(title, description)],
+        embeds: [ticketPanelEmbed(interaction.guild.name, interaction.guild.iconURL())],
         components: [openButton],
       });
 
       await interaction.reply({
-        embeds: [successEmbed(`Ticket panel posted in <#${channelOption.id}>!`)],
+        embeds: [successEmbed(`Ticket-Panel in <#${targetChannelId}> gepostet!`)],
         flags: MessageFlags.Ephemeral,
       });
     } catch {
       await interaction.reply({
-        embeds: [
-          errorEmbed(
-            "Failed to post the ticket panel. Check that I have **Send Messages** and **Embed Links** permissions in that channel.",
-          ),
-        ],
+        embeds: [errorEmbed("Fehler beim Posten. Überprüfe meine Berechtigungen in dem Channel.")],
         flags: MessageFlags.Ephemeral,
       });
     }

@@ -10,51 +10,45 @@ import {
   TextChannel,
   EmbedBuilder,
 } from "discord.js";
-import { getGuildConfig } from "../storage.js";
+import { getGuildConfig, setGuildConfig } from "../storage.js";
 import { successEmbed, errorEmbed } from "../utils/embeds.js";
+
+const RULE_ICONS = ["◆", "◈", "◉", "◎", "◇", "◆", "◈", "◉", "◎", "◇"];
 
 export const rulesCommand = new SlashCommandBuilder()
   .setName("rules")
-  .setDescription("Rules system commands")
+  .setDescription("Regelwerk-System")
   .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
   .addSubcommand((sub) =>
     sub
       .setName("panel")
-      .setDescription("Post the rules panel with an accept button")
+      .setDescription("Regelwerk-Panel mit Akzeptieren-Button posten")
       .addChannelOption((opt) =>
         opt
           .setName("channel")
-          .setDescription("Channel to post the rules in")
+          .setDescription("Channel (Standard: aktueller Channel)")
           .addChannelTypes(ChannelType.GuildText)
-          .setRequired(true),
+          .setRequired(false),
       ),
   )
   .addSubcommand((sub) =>
     sub
       .setName("add")
-      .setDescription("Add a rule to the rules list")
+      .setDescription("Eine Regel zur Regelliste hinzufügen")
       .addStringOption((opt) =>
-        opt
-          .setName("rule")
-          .setDescription("The rule text to add")
-          .setRequired(true)
-          .setMaxLength(512),
+        opt.setName("regel").setDescription("Der Regeltext").setRequired(true).setMaxLength(512),
       ),
   )
   .addSubcommand((sub) =>
     sub
       .setName("remove")
-      .setDescription("Remove a rule by its number")
+      .setDescription("Eine Regel anhand ihrer Nummer entfernen")
       .addIntegerOption((opt) =>
-        opt
-          .setName("number")
-          .setDescription("Rule number to remove")
-          .setMinValue(1)
-          .setRequired(true),
+        opt.setName("nummer").setDescription("Regelnummer").setMinValue(1).setRequired(true),
       ),
   )
   .addSubcommand((sub) =>
-    sub.setName("list").setDescription("List all current rules"),
+    sub.setName("list").setDescription("Alle aktuellen Regeln anzeigen"),
   );
 
 export async function handleRulesCommand(
@@ -63,33 +57,28 @@ export async function handleRulesCommand(
   if (!interaction.guild) return;
 
   const sub = interaction.options.getSubcommand();
-  const { getGuildConfig: getConfig, setGuildConfig } = await import(
-    "../storage.js"
-  );
-  const config = getConfig(interaction.guild.id);
+  const config = getGuildConfig(interaction.guild.id);
 
+  // ─── Add ─────────────────────────────────────────────────────────────────────
   if (sub === "add") {
-    const rule = interaction.options.getString("rule", true);
+    const rule = interaction.options.getString("regel", true);
     const rules = [...config.rules.rules, rule];
     setGuildConfig(interaction.guild.id, { rules: { ...config.rules, rules } });
 
     await interaction.reply({
-      embeds: [
-        successEmbed(
-          `Rule **#${rules.length}** added:\n> ${rule}`,
-        ),
-      ],
+      embeds: [successEmbed(`Regel **#${rules.length}** hinzugefügt:\n> ${rule}`)],
       flags: MessageFlags.Ephemeral,
     });
     return;
   }
 
+  // ─── Remove ───────────────────────────────────────────────────────────────────
   if (sub === "remove") {
-    const num = interaction.options.getInteger("number", true);
+    const num = interaction.options.getInteger("nummer", true);
     const rules = [...config.rules.rules];
     if (num < 1 || num > rules.length) {
       await interaction.reply({
-        embeds: [errorEmbed(`Rule #${num} does not exist. You have ${rules.length} rules.`)],
+        embeds: [errorEmbed(`Regel #${num} existiert nicht. Du hast ${rules.length} Regeln.`)],
         flags: MessageFlags.Ephemeral,
       });
       return;
@@ -98,87 +87,128 @@ export async function handleRulesCommand(
     setGuildConfig(interaction.guild.id, { rules: { ...config.rules, rules } });
 
     await interaction.reply({
-      embeds: [successEmbed(`Rule **#${num}** removed:\n> ${removed}`)],
+      embeds: [successEmbed(`Regel **#${num}** entfernt:\n> ${removed}`)],
       flags: MessageFlags.Ephemeral,
     });
     return;
   }
 
+  // ─── List ─────────────────────────────────────────────────────────────────────
   if (sub === "list") {
     const rules = config.rules.rules;
     if (rules.length === 0) {
       await interaction.reply({
-        embeds: [errorEmbed("No rules added yet. Use `/rules add` to add rules.")],
+        embeds: [errorEmbed("Noch keine Regeln hinzugefügt. Nutze `/rules add`.")],
         flags: MessageFlags.Ephemeral,
       });
       return;
     }
     const embed = new EmbedBuilder()
       .setColor(0x5865f2)
-      .setTitle("📜  Current Rules")
-      .setDescription(
-        rules.map((r, i) => `**${i + 1}.** ${r}`).join("\n\n"),
-      )
-      .setFooter({ text: `${rules.length} rule(s) total` });
+      .setTitle("📜  Regelwerk")
+      .setDescription(rules.map((r, i) => `**${i + 1}.** ${r}`).join("\n\n"))
+      .setFooter({ text: `${rules.length} Regel(n) insgesamt` });
 
     await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     return;
   }
 
+  // ─── Panel ────────────────────────────────────────────────────────────────────
   if (sub === "panel") {
-    const channelOption = interaction.options.getChannel("channel", true);
+    const channelOption = interaction.options.getChannel("channel");
+    const targetChannelId = channelOption?.id ?? interaction.channelId;
     const rules = config.rules.rules;
 
-    const targetChannel = interaction.guild.channels.cache.get(
-      channelOption.id,
-    ) as TextChannel | undefined;
-
+    const targetChannel = interaction.guild.channels.cache.get(targetChannelId) as TextChannel | undefined;
     if (!targetChannel || !("send" in targetChannel)) {
       await interaction.reply({
-        embeds: [errorEmbed("Could not find or send to that channel.")],
+        embeds: [errorEmbed("Channel nicht gefunden oder keine Schreibrechte.")],
         flags: MessageFlags.Ephemeral,
       });
       return;
     }
 
-    const rulesText =
-      rules.length > 0
-        ? rules.map((r, i) => `**${i + 1}.** ${r}`).join("\n\n")
-        : "*No rules have been added yet. Use `/rules add` to add rules.*";
+    const iconURL = interaction.guild.iconURL() ?? undefined;
 
-    const embed = new EmbedBuilder()
-      .setColor(0xed4245)
-      .setTitle("⚖️  Server Rules")
-      .setDescription(
-        `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n${rulesText}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
-      )
-      .addFields({
-        name: "📌  By clicking the button below you agree to follow all rules",
-        value:
-          "Breaking these rules may result in a mute, kick, or permanent ban from the server.",
-      })
-      .setFooter({
-        text: `${interaction.guild.name} • Rules`,
-        iconURL: interaction.guild.iconURL() ?? undefined,
-      })
-      .setTimestamp();
+    // Build beautiful rules text — split into sections if many rules
+    let rulesText: string;
+    if (rules.length === 0) {
+      rulesText = "*Noch keine Regeln festgelegt. Nutze `/rules add` um Regeln hinzuzufügen.*";
+    } else {
+      rulesText = rules
+        .map((r, i) => `${RULE_ICONS[i % RULE_ICONS.length] ?? "◆"}  ${r}`)
+        .join("\n\n────────────────────────────────────────\n\n");
+    }
+
+    // Discord embed description limit is 4096 chars — split into multiple embeds if needed
+    const chunks: string[] = [];
+    if (rulesText.length <= 3800) {
+      chunks.push(rulesText);
+    } else {
+      const ruleLines = rules.map(
+        (r, i) => `${RULE_ICONS[i % RULE_ICONS.length] ?? "◆"}  ${r}`,
+      );
+      let current = "";
+      for (const line of ruleLines) {
+        if ((current + "\n\n────\n\n" + line).length > 3800) {
+          chunks.push(current);
+          current = line;
+        } else {
+          current = current ? current + "\n\n────────────────────────────────────────\n\n" + line : line;
+        }
+      }
+      if (current) chunks.push(current);
+    }
+
+    const embeds = chunks.map((chunk, idx) =>
+      new EmbedBuilder()
+        .setColor(0x2b2d31)
+        .setTitle(idx === 0 ? "📜  Server-Regelwerk" : null)
+        .setAuthor(
+          idx === 0
+            ? { name: `${interaction.guild!.name} • Regelwerk`, iconURL }
+            : null,
+        )
+        .setDescription(
+          idx === 0
+            ? `Bitte lies alle Regeln sorgfältig durch und halte dich daran.\n\n${chunk}`
+            : chunk,
+        )
+        .setFooter(
+          idx === chunks.length - 1
+            ? {
+                text: `${interaction.guild!.name} • Mit dem Klick auf den Button stimmst du allen Regeln zu.`,
+                iconURL,
+              }
+            : null,
+        )
+        .setTimestamp(idx === chunks.length - 1 ? new Date() : null),
+    );
 
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
         .setCustomId("rules_accept")
-        .setLabel("✅  I Accept the Rules")
+        .setLabel("✅  Regeln akzeptieren")
         .setStyle(ButtonStyle.Success),
     );
 
     try {
-      await targetChannel.send({ embeds: [embed], components: [row] });
+      // Send all embeds, button only on last
+      for (let i = 0; i < embeds.length; i++) {
+        const isLast = i === embeds.length - 1;
+        await targetChannel.send({
+          embeds: [embeds[i]!],
+          components: isLast ? [row] : [],
+        });
+      }
+
       await interaction.reply({
-        embeds: [successEmbed(`Rules panel posted in <#${channelOption.id}>!`)],
+        embeds: [successEmbed(`Regelwerk-Panel in <#${targetChannelId}> gepostet!`)],
         flags: MessageFlags.Ephemeral,
       });
     } catch {
       await interaction.reply({
-        embeds: [errorEmbed("Failed to post the rules panel. Check my permissions.")],
+        embeds: [errorEmbed("Fehler beim Posten. Überprüfe meine Berechtigungen in dem Channel.")],
         flags: MessageFlags.Ephemeral,
       });
     }

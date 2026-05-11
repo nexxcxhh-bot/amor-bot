@@ -23,10 +23,35 @@
         "enabled": true,
         "channelId": "1492604771171827840",
         "dmUser": false
+      },
+      "verify": {
+        "enabled": true,
+        "roleId": "1492604770329034808"
       }
     }
   },
   "tickets": {},
   "ticketCounters": {},
-  "pendingFeedback": {}
+  "pendingFeedback": {},
+  "giveaways": {
+    "1503339745470709871": {
+      "messageId": "1503339745470709871",
+      "channelId": "1492604771654434999",
+      "guildId": "1492604770329034803",
+      "prize": "20€ nach wahl",
+      "winners": 1,
+      "endsAt": 1778526925692,
+      "hostId": "1377775973453398157",
+      "ended": false,
+      "winnerIds": []
+    }
+  },
+  "giveawayEntries": {
+    "1503339745470709871": [
+      "1377775973453398157",
+      "829272054347726858",
+      "818493218492645437",
+      "1213119956519092298"
+    ]
+  }
 }

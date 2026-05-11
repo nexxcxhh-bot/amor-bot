@@ -117,20 +117,29 @@ function defaultGuildConfig(): GuildConfig {
       action: "kick",
     },
     toxicFilter: {
-      enabled: false,
+      enabled: true,
       timeoutMinutes: 10,
       customWords: [],
     },
     welcome: {
-      enabled: false,
-      dmUser: false,
+      enabled: true,
+      dmUser: true,
+      message: undefined,
     },
     verify: {
-      enabled: false,
+      enabled: true,
     },
     rules: {
-      enabled: false,
-      rules: [],
+      enabled: true,
+      rules: [
+        "**Respekt & Verhalten** — Behandle alle Mitglieder respektvoll. Keine Beleidigungen, Provokationen oder Diskriminierung (Rassismus, Sexismus etc.).",
+        "**Chat Regeln** — Kein Spam, keine Capslock-Nachrichten und bleib im richtigen Channel beim Thema.",
+        "**Werbung** — Werbung ist nur mit Erlaubnis erlaubt. Kein DM-Werben an andere Mitglieder.",
+        "**Inhalte** — Keine NSFW-, Gewalt- oder illegalen Inhalte. Keine beleidigenden Bilder oder Videos.",
+        "**Voice Chat** — Respektvoll sprechen. Kein Schreien, kein Soundboard-Spam, andere nicht absichtlich stören.",
+        "**Support** — Support nur in dafür vorgesehenen Channels oder über das Ticket-System.",
+        "**Konsequenzen** — Regelverstöße können zu einem Mute, Kick oder permanenten Bann führen.",
+      ],
     },
   };
 }

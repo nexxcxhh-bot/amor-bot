@@ -1,20 +1,19 @@
-import {
-  ButtonInteraction,
-  GuildMember,
-  EmbedBuilder,
-} from "discord.js";
+import { ButtonInteraction, GuildMember, EmbedBuilder } from "discord.js";
 import { getGuildConfig } from "../storage.js";
 
-export async function handleVerifyButton(
-  interaction: ButtonInteraction,
-): Promise<void> {
+export async function handleVerifyButton(interaction: ButtonInteraction): Promise<void> {
   const guild = interaction.guild;
   if (!guild) return;
 
   const config = getGuildConfig(guild.id);
   if (!config.verify.roleId) {
     await interaction.reply({
-      content: "❌  Verification is not fully configured. Please ask an admin to set a verified role.",
+      embeds: [
+        new EmbedBuilder()
+          .setColor(0xed4245)
+          .setTitle("❌  Nicht konfiguriert")
+          .setDescription("Die Verifizierung wurde noch nicht vollständig eingerichtet.\nBitte wende dich an einen Admin."),
+      ],
       ephemeral: true,
     });
     return;
@@ -23,31 +22,42 @@ export async function handleVerifyButton(
   const member = interaction.member as GuildMember;
   if (member.roles.cache.has(config.verify.roleId)) {
     await interaction.reply({
-      content: "✅  You are already verified!",
+      embeds: [
+        new EmbedBuilder()
+          .setColor(0x57f287)
+          .setTitle("✅  Bereits verifiziert")
+          .setDescription("Du bist bereits verifiziert und hast Zugang zum Server!"),
+      ],
       ephemeral: true,
     });
     return;
   }
 
   try {
-    await member.roles.add(config.verify.roleId, "Verified via button");
+    await member.roles.add(config.verify.roleId, "Verifiziert via Button");
     await interaction.reply({
       embeds: [
         new EmbedBuilder()
           .setColor(0x57f287)
-          .setTitle("✅  Verification Successful!")
+          .setAuthor({ name: guild.name, iconURL: guild.iconURL() ?? undefined })
+          .setTitle("✅  Erfolgreich verifiziert!")
           .setDescription(
-            "You have been verified and now have access to the server.\n\n" +
-            "Welcome to the community! 🎉",
+            `Du hast die Verifizierung abgeschlossen und hast jetzt Zugang zu allen öffentlichen Channels.\n\n` +
+            `**Viel Spaß auf ${guild.name}!** 🎉`,
           )
-          .setFooter({ text: guild.name })
+          .setFooter({ text: guild.name, iconURL: guild.iconURL() ?? undefined })
           .setTimestamp(),
       ],
       ephemeral: true,
     });
   } catch {
     await interaction.reply({
-      content: "❌  Failed to give you the verified role. Please contact an admin.",
+      embeds: [
+        new EmbedBuilder()
+          .setColor(0xed4245)
+          .setTitle("❌  Fehler")
+          .setDescription("Die Rolle konnte nicht vergeben werden. Bitte wende dich an einen Admin."),
+      ],
       ephemeral: true,
     });
   }
