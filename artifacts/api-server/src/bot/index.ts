@@ -15,6 +15,7 @@ import { verifyCommand, handleVerifyCommand } from "./commands/verify.js";
 import { rulesCommand, handleRulesCommand } from "./commands/rules.js";
 import { giveawayCommand, handleGiveawayCommand } from "./commands/giveaway.js";
 import { adminCommand, handleAdminCommand, handleAdminInteraction } from "./commands/admin.js";
+import { invitesCommand, handleInvitesCommand } from "./commands/invites.js";
 import {
   handleCreateTicket,
   handleCloseTicket,
@@ -32,6 +33,13 @@ import { handleMemberWelcome } from "./features/welcome.js";
 import { handleVerifyButton } from "./features/verify.js";
 import { handleRulesAccept } from "./features/rules.js";
 import { handleGiveawayEnter, restoreGiveaways } from "./features/giveaway.js";
+import {
+  cacheGuildInvites,
+  handleInviteCreate,
+  handleInviteDelete,
+  handleInviteMemberAdd,
+  handleInviteMemberRemove,
+} from "./features/invite-tracker.js";
 
 const commands = [
   adminCommand.toJSON(),
@@ -41,6 +49,7 @@ const commands = [
   verifyCommand.toJSON(),
   rulesCommand.toJSON(),
   giveawayCommand.toJSON(),
+  invitesCommand.toJSON(),
 ];
 
 export async function startBot(): Promise<void> {
@@ -84,6 +93,11 @@ export async function startBot(): Promise<void> {
 
     startStatsUpdater(readyClient);
     restoreGiveaways(readyClient);
+
+    // Cache invites for all guilds
+    for (const guild of readyClient.guilds.cache.values()) {
+      await cacheGuildInvites(guild).catch(() => null);
+    }
     console.log("[Bot] Ready.");
   });
 
@@ -100,6 +114,7 @@ export async function startBot(): Promise<void> {
         else if (commandName === "verify")   await handleVerifyCommand(interaction);
         else if (commandName === "rules")    await handleRulesCommand(interaction);
         else if (commandName === "giveaway") await handleGiveawayCommand(interaction);
+        else if (commandName === "invites")  await handleInvitesCommand(interaction);
         return;
       }
 
@@ -155,7 +170,27 @@ export async function startBot(): Promise<void> {
     await Promise.allSettled([
       handleMemberWelcome(member),
       handleRaidMemberAdd(member),
+      handleInviteMemberAdd(member),
     ]);
+  });
+
+  // ─── Member leave ─────────────────────────────────────────────────────────────
+  client.on(Events.GuildMemberRemove, async (member) => {
+    if (member.partial) return;
+    await handleInviteMemberRemove(member as GuildMember).catch(() => null);
+  });
+
+  // ─── Invite tracking ──────────────────────────────────────────────────────────
+  client.on(Events.InviteCreate, async (invite) => {
+    await handleInviteCreate(invite).catch(() => null);
+  });
+
+  client.on(Events.InviteDelete, async (invite) => {
+    await handleInviteDelete(invite).catch(() => null);
+  });
+
+  client.on(Events.GuildCreate, async (guild) => {
+    await cacheGuildInvites(guild).catch(() => null);
   });
 
   // ─── Messages ─────────────────────────────────────────────────────────────────

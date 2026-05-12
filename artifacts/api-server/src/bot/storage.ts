@@ -92,6 +92,14 @@ export interface GiveawayData {
   winnerIds: string[];
 }
 
+export interface InviteData {
+  regular: number;
+  left: number;
+  fake: number;
+  bonus: number;
+  joinedMembers?: Array<{ userId: string; joinedAt: number; left: boolean }>;
+}
+
 interface StorageData {
   guilds: Record<string, GuildConfig>;
   tickets: Record<string, TicketData>;
@@ -99,6 +107,7 @@ interface StorageData {
   pendingFeedback: Record<string, PendingFeedback>;
   giveaways: Record<string, GiveawayData>;
   giveawayEntries: Record<string, string[]>;
+  invites: Record<string, Record<string, InviteData>>;
 }
 
 function defaultGuildConfig(): GuildConfig {
@@ -151,7 +160,7 @@ function defaultGuildConfig(): GuildConfig {
 
 function loadData(): StorageData {
   if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
-  const empty: StorageData = { guilds: {}, tickets: {}, ticketCounters: {}, pendingFeedback: {}, giveaways: {}, giveawayEntries: {} };
+  const empty: StorageData = { guilds: {}, tickets: {}, ticketCounters: {}, pendingFeedback: {}, giveaways: {}, giveawayEntries: {}, invites: {} };
   if (!existsSync(DATA_FILE)) return empty;
   try {
     return JSON.parse(readFileSync(DATA_FILE, "utf-8")) as StorageData;
@@ -241,4 +250,49 @@ export function getOpenTicketCount(guildId: string): number {
   return Object.values(data.tickets).filter(
     (t) => t.guildId === guildId && t.status === "open",
   ).length;
+}
+
+const defaultInviteData = (): InviteData => ({
+  regular: 0,
+  left: 0,
+  fake: 0,
+  bonus: 0,
+  joinedMembers: [],
+});
+
+export function getInviteData(guildId: string, userId: string): InviteData {
+  const data = loadData();
+  return data.invites?.[guildId]?.[userId] ?? defaultInviteData();
+}
+
+export function setInviteData(guildId: string, userId: string, invite: InviteData): void {
+  const data = loadData();
+  if (!data.invites) data.invites = {};
+  if (!data.invites[guildId]) data.invites[guildId] = {};
+  data.invites[guildId]![userId] = invite;
+  saveData(data);
+}
+
+export function loadAllInviteData(guildId: string): Record<string, InviteData> {
+  const data = loadData();
+  return data.invites?.[guildId] ?? {};
+}
+
+export function updateInviteStats(
+  guildId: string,
+  userId: string,
+  delta: { regular: number; left: number; fake: number; bonus: number },
+): void {
+  const data = loadData();
+  if (!data.invites) data.invites = {};
+  if (!data.invites[guildId]) data.invites[guildId] = {};
+  const existing = data.invites[guildId]![userId] ?? defaultInviteData();
+  data.invites[guildId]![userId] = {
+    ...existing,
+    regular: existing.regular + delta.regular,
+    left: existing.left + delta.left,
+    fake: existing.fake + delta.fake,
+    bonus: existing.bonus + delta.bonus,
+  };
+  saveData(data);
 }
