@@ -56,12 +56,20 @@ export async function handleCreateTicket(
 
   let categoryId = config.ticketCategoryId;
   if (!categoryId) {
-    const category = await guild.channels.create({
-      name: "🎫 Support Tickets",
-      type: ChannelType.GuildCategory,
-    });
-    categoryId = category.id;
-    setGuildConfig(guild.id, { ticketCategoryId: category.id });
+    const existing = guild.channels.cache.find(
+      (c) => c.type === ChannelType.GuildCategory && c.name === "🎫 Support Tickets",
+    );
+    if (existing) {
+      categoryId = existing.id;
+      setGuildConfig(guild.id, { ticketCategoryId: existing.id });
+    } else {
+      const category = await guild.channels.create({
+        name: "🎫 Support Tickets",
+        type: ChannelType.GuildCategory,
+      });
+      categoryId = category.id;
+      setGuildConfig(guild.id, { ticketCategoryId: category.id });
+    }
   }
 
   const ticketNumber = incrementTicketCounter(guild.id);
