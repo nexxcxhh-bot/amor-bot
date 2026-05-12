@@ -10,7 +10,7 @@ import {
   TextChannel,
   EmbedBuilder,
 } from "discord.js";
-import { successEmbed, errorEmbed } from "../utils/embeds.js";
+import { errorEmbed, successEmbed, COLORS } from "../utils/embeds.js";
 
 export const ticketCommand = new SlashCommandBuilder()
   .setName("ticket")
@@ -27,46 +27,40 @@ export const ticketCommand = new SlashCommandBuilder()
 
 export async function sendTicketPanel(targetChannel: TextChannel, guildName: string, iconURL: string | undefined): Promise<void> {
   const embed = new EmbedBuilder()
-    .setColor(0x5865f2)
-    .setAuthor({ name: guildName, iconURL })
-    .setTitle("🎫  Support Ticket")
+    .setColor(COLORS.primary)
+    .setAuthor({ name: `${guildName} • Support`, iconURL })
+    .setTitle("🎫  Support Ticket System")
     .setDescription(
-      `Brauchst du **Hilfe** oder hast ein **Anliegen**?\n` +
-      `Unser Team steht dir zur Verfügung – klicke einfach auf den Button.\n\n` +
-      `▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n\u200b`,
+      `> Benötigst du **Hilfe** oder hast ein **Anliegen**?\n` +
+      `> Unser Team ist für dich da — erstelle einfach ein Ticket!\n\n` +
+      `\`\`\`\n① Klicke auf „Ticket erstellen"\n② Ein privater Channel wird geöffnet\n③ Schildere dein Anliegen\n④ Wir melden uns schnellstmöglich\`\`\``,
     )
     .addFields(
       {
-        name: "〢 📋  Wie funktioniert es?",
-        value:
-          "╰ **①** Klicke auf **Ticket erstellen**\n" +
-          "╰ **②** Ein privater Channel wird geöffnet\n" +
-          "╰ **③** Beschreibe dein Anliegen\n" +
-          "╰ **④** Das Team meldet sich schnellstmöglich",
+        name: "⏱️  Reaktionszeit",
+        value: "So schnell wie möglich",
         inline: true,
       },
       {
-        name: "〢 ℹ️  Wichtig",
-        value:
-          "╰ Nur **ein** Ticket gleichzeitig\n" +
-          "╰ Kein Spam oder sinnlose Tickets\n" +
-          "╰ Beschreibe dein Problem genau\n" +
-          "╰ Sei geduldig — wir helfen dir",
+        name: "🔒  Privatsphäre",
+        value: "Nur du & das Team",
         inline: true,
       },
       {
-        name: "\u200b",
-        value: "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬",
-        inline: false,
+        name: "📋  Regeln",
+        value: "Nur ein Ticket gleichzeitig",
+        inline: true,
       },
     )
-    .setFooter({ text: `${guildName} • Support-System`, iconURL })
+    .setImage("https://i.imgur.com/transparent.png")
+    .setFooter({ text: `${guildName} • Support System`, iconURL })
     .setTimestamp();
 
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId("ticket_create")
-      .setLabel("🎫  Ticket erstellen")
+      .setLabel("Ticket erstellen")
+      .setEmoji("🎫")
       .setStyle(ButtonStyle.Primary),
   );
 

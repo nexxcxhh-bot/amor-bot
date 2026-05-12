@@ -35,132 +35,145 @@ export async function handleCreateTicket(
   const guild = interaction.guild;
   if (!guild) return;
 
-  await interaction.deferReply({ ephemeral: true });
-
-  const config = getGuildConfig(guild.id);
-  const user = interaction.user;
-
-  const existingTicket = guild.channels.cache.find((c) => {
-    if (!c.name.startsWith("ticket-")) return false;
-    const topic = "topic" in c ? (c.topic as string | null) : null;
-    return topic?.includes(user.id) && topic.includes("open");
-  });
-  if (existingTicket) {
-    await interaction.editReply({
-      embeds: [
-        errorEmbed(`You already have an open ticket: <#${existingTicket.id}>`),
-      ],
-    });
+  try {
+    await interaction.deferReply({ ephemeral: true });
+  } catch {
     return;
   }
 
-  let categoryId = config.ticketCategoryId;
-  if (!categoryId) {
-    const existing = guild.channels.cache.find(
-      (c) => c.type === ChannelType.GuildCategory && c.name === "🎫 Support Tickets",
-    );
-    if (existing) {
-      categoryId = existing.id;
-      setGuildConfig(guild.id, { ticketCategoryId: existing.id });
-    } else {
-      const category = await guild.channels.create({
-        name: "🎫 Support Tickets",
-        type: ChannelType.GuildCategory,
+  try {
+    const config = getGuildConfig(guild.id);
+    const user = interaction.user;
+
+    const existingTicket = guild.channels.cache.find((c) => {
+      if (!c.name.startsWith("ticket-")) return false;
+      const topic = "topic" in c ? (c.topic as string | null) : null;
+      return topic?.includes(user.id) && topic.includes("open");
+    });
+
+    if (existingTicket) {
+      await interaction.editReply({
+        embeds: [errorEmbed(`Du hast bereits ein offenes Ticket: <#${existingTicket.id}>`)],
       });
-      categoryId = category.id;
-      setGuildConfig(guild.id, { ticketCategoryId: category.id });
+      return;
+    }
+
+    let categoryId = config.ticketCategoryId;
+    if (!categoryId) {
+      const existing = guild.channels.cache.find(
+        (c) => c.type === ChannelType.GuildCategory && c.name === "🎫 Support Tickets",
+      );
+      if (existing) {
+        categoryId = existing.id;
+        setGuildConfig(guild.id, { ticketCategoryId: existing.id });
+      } else {
+        const category = await guild.channels.create({
+          name: "🎫 Support Tickets",
+          type: ChannelType.GuildCategory,
+        });
+        categoryId = category.id;
+        setGuildConfig(guild.id, { ticketCategoryId: category.id });
+      }
+    }
+
+    const ticketNumber = incrementTicketCounter(guild.id);
+    const channelName = `ticket-${String(ticketNumber).padStart(4, "0")}`;
+
+    const permissionOverwrites: {
+      id: string;
+      type: OverwriteType;
+      allow?: bigint[];
+      deny?: bigint[];
+    }[] = [
+      {
+        id: guild.roles.everyone.id,
+        type: OverwriteType.Role,
+        deny: [PermissionFlagsBits.ViewChannel],
+      },
+      {
+        id: user.id,
+        type: OverwriteType.Member,
+        allow: [
+          PermissionFlagsBits.ViewChannel,
+          PermissionFlagsBits.SendMessages,
+          PermissionFlagsBits.ReadMessageHistory,
+          PermissionFlagsBits.AttachFiles,
+        ],
+      },
+    ];
+
+    if (config.ticketSupportRoleId) {
+      permissionOverwrites.push({
+        id: config.ticketSupportRoleId,
+        type: OverwriteType.Role,
+        allow: [
+          PermissionFlagsBits.ViewChannel,
+          PermissionFlagsBits.SendMessages,
+          PermissionFlagsBits.ReadMessageHistory,
+          PermissionFlagsBits.ManageMessages,
+        ],
+      });
+    }
+
+    if (guild.members.me) {
+      permissionOverwrites.push({
+        id: guild.members.me.id,
+        type: OverwriteType.Member,
+        allow: [
+          PermissionFlagsBits.ViewChannel,
+          PermissionFlagsBits.SendMessages,
+          PermissionFlagsBits.ManageChannels,
+          PermissionFlagsBits.ReadMessageHistory,
+        ],
+      });
+    }
+
+    const ticketChannel = await guild.channels.create({
+      name: channelName,
+      type: ChannelType.GuildText,
+      parent: categoryId,
+      permissionOverwrites,
+      topic: `open | user:${user.id} | Ticket #${String(ticketNumber).padStart(4, "0")} | Created by ${user.tag}`,
+    });
+
+    setTicket(ticketChannel.id, {
+      channelId: ticketChannel.id,
+      userId: user.id,
+      guildId: guild.id,
+      createdAt: Date.now(),
+      status: "open",
+      ticketNumber,
+    });
+
+    const closeRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId("ticket_close")
+        .setLabel("Ticket schließen")
+        .setEmoji("🔒")
+        .setStyle(ButtonStyle.Danger),
+    );
+
+    await ticketChannel.send({
+      content:
+        `<@${user.id}>` +
+        (config.ticketSupportRoleId ? ` <@&${config.ticketSupportRoleId}>` : ""),
+      embeds: [ticketOpenedEmbed(`<@${user.id}>`, ticketNumber)],
+      components: [closeRow],
+    });
+
+    await interaction.editReply({
+      embeds: [successEmbed(`Ticket erstellt! Gehe zu <#${ticketChannel.id}>`)],
+    });
+  } catch (err) {
+    console.error("[Ticket] Error creating ticket:", err);
+    try {
+      await interaction.editReply({
+        embeds: [errorEmbed("Fehler beim Erstellen des Tickets. Überprüfe meine Berechtigungen.")],
+      });
+    } catch {
+      // interaction already replied
     }
   }
-
-  const ticketNumber = incrementTicketCounter(guild.id);
-  const channelName = `ticket-${String(ticketNumber).padStart(4, "0")}`;
-
-  const permissionOverwrites: {
-    id: string;
-    type: OverwriteType;
-    allow?: bigint[];
-    deny?: bigint[];
-  }[] = [
-    {
-      id: guild.roles.everyone.id,
-      type: OverwriteType.Role,
-      deny: [PermissionFlagsBits.ViewChannel],
-    },
-    {
-      id: user.id,
-      type: OverwriteType.Member,
-      allow: [
-        PermissionFlagsBits.ViewChannel,
-        PermissionFlagsBits.SendMessages,
-        PermissionFlagsBits.ReadMessageHistory,
-        PermissionFlagsBits.AttachFiles,
-      ],
-    },
-  ];
-
-  if (config.ticketSupportRoleId) {
-    permissionOverwrites.push({
-      id: config.ticketSupportRoleId,
-      type: OverwriteType.Role,
-      allow: [
-        PermissionFlagsBits.ViewChannel,
-        PermissionFlagsBits.SendMessages,
-        PermissionFlagsBits.ReadMessageHistory,
-        PermissionFlagsBits.ManageMessages,
-      ],
-    });
-  }
-
-  if (guild.members.me) {
-    permissionOverwrites.push({
-      id: guild.members.me.id,
-      type: OverwriteType.Member,
-      allow: [
-        PermissionFlagsBits.ViewChannel,
-        PermissionFlagsBits.SendMessages,
-        PermissionFlagsBits.ManageChannels,
-        PermissionFlagsBits.ReadMessageHistory,
-      ],
-    });
-  }
-
-  const ticketChannel = await guild.channels.create({
-    name: channelName,
-    type: ChannelType.GuildText,
-    parent: categoryId,
-    permissionOverwrites,
-    topic: `open | user:${user.id} | Ticket #${String(ticketNumber).padStart(4, "0")} | Created by ${user.tag}`,
-  });
-
-  setTicket(ticketChannel.id, {
-    channelId: ticketChannel.id,
-    userId: user.id,
-    guildId: guild.id,
-    createdAt: Date.now(),
-    status: "open",
-    ticketNumber,
-  });
-
-  const closeRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setCustomId("ticket_close")
-      .setLabel("🔒  Close Ticket")
-      .setStyle(ButtonStyle.Danger),
-  );
-
-  await ticketChannel.send({
-    content:
-      `<@${user.id}>` +
-      (config.ticketSupportRoleId ? ` <@&${config.ticketSupportRoleId}>` : ""),
-    embeds: [ticketOpenedEmbed(`<@${user.id}>`, ticketNumber)],
-    components: [closeRow],
-  });
-
-  await interaction.editReply({
-    embeds: [
-      successEmbed(`Ticket created! Head over to <#${ticketChannel.id}>`),
-    ],
-  });
 }
 
 export async function handleCloseTicket(
@@ -172,7 +185,7 @@ export async function handleCloseTicket(
   const ticket = getTicket(interaction.channel.id);
   if (!ticket) {
     await interaction.reply({
-      embeds: [errorEmbed("This is not a ticket channel.")],
+      embeds: [errorEmbed("Dies ist kein Ticket-Channel.")],
       ephemeral: true,
     });
     return;
@@ -190,26 +203,11 @@ export async function handleCloseTicket(
   try {
     const ticketUser = await guild.client.users.fetch(ticket.userId);
     const feedbackRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder()
-        .setCustomId("feedback_1")
-        .setLabel("⭐")
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId("feedback_2")
-        .setLabel("⭐⭐")
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId("feedback_3")
-        .setLabel("⭐⭐⭐")
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId("feedback_4")
-        .setLabel("⭐⭐⭐⭐")
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId("feedback_5")
-        .setLabel("⭐⭐⭐⭐⭐")
-        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("feedback_1").setLabel("⭐").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("feedback_2").setLabel("⭐⭐").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("feedback_3").setLabel("⭐⭐⭐").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("feedback_4").setLabel("⭐⭐⭐⭐").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("feedback_5").setLabel("⭐⭐⭐⭐⭐").setStyle(ButtonStyle.Secondary),
     );
 
     setPendingFeedback(ticket.userId, {
@@ -231,9 +229,7 @@ export async function handleCloseTicket(
   setTimeout(async () => {
     try {
       deleteTicket(interaction.channel!.id);
-      await (interaction.channel as TextChannel).delete(
-        "Ticket closed",
-      );
+      await (interaction.channel as TextChannel).delete("Ticket closed");
     } catch {
       /* ignore */
     }
@@ -247,7 +243,7 @@ export async function handleFeedbackSubmit(
   const pending = getPendingFeedback(interaction.user.id);
   if (!pending) {
     await interaction.reply({
-      content: "No pending feedback found. This rating may have already been submitted.",
+      content: "Kein ausstehendes Feedback gefunden.",
       ephemeral: true,
     });
     return;
@@ -261,18 +257,10 @@ export async function handleFeedbackSubmit(
     const config = getGuildConfig(guild.id);
 
     if (config.feedbackChannelId) {
-      const feedbackChannel = guild.channels.cache.get(
-        config.feedbackChannelId,
-      ) as TextChannel | undefined;
+      const feedbackChannel = guild.channels.cache.get(config.feedbackChannelId) as TextChannel | undefined;
       if (feedbackChannel) {
         await feedbackChannel.send({
-          embeds: [
-            feedbackReceivedEmbed(
-              interaction.user.id,
-              rating,
-              pending.ticketNumber,
-            ),
-          ],
+          embeds: [feedbackReceivedEmbed(interaction.user.id, rating, pending.ticketNumber)],
         });
       }
     }
@@ -281,9 +269,9 @@ export async function handleFeedbackSubmit(
   }
 
   const stars = "⭐".repeat(rating);
-  const labels = ["", "Very Bad", "Bad", "Okay", "Good", "Excellent"];
+  const labels = ["", "Sehr schlecht", "Schlecht", "In Ordnung", "Gut", "Ausgezeichnet"];
   await interaction.editReply({
-    content: `Thank you for your feedback! You rated us **${stars} — ${labels[rating]}** (${rating}/5).`,
+    content: `Danke für dein Feedback! Du hast uns **${stars} — ${labels[rating]}** (${rating}/5) bewertet.`,
     embeds: [],
     components: [],
   });
