@@ -23,33 +23,25 @@ const COLOR_OPTIONS = [
 
 export const panelCommand = new SlashCommandBuilder()
   .setName("panel")
-  .setDescription("Create a custom information panel in any channel")
+  .setDescription("Eigenes Info-Panel in einem Channel posten")
   .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
   .addStringOption((opt) =>
-    opt
-      .setName("title")
-      .setDescription("Panel title")
-      .setRequired(true)
-      .setMaxLength(256),
+    opt.setName("titel").setDescription("Panel-Titel").setRequired(true).setMaxLength(256),
   )
   .addStringOption((opt) =>
-    opt
-      .setName("description")
-      .setDescription("Panel text content (supports markdown)")
-      .setRequired(true)
-      .setMaxLength(4000),
+    opt.setName("inhalt").setDescription("Panel-Text (Markdown unterstützt)").setRequired(true).setMaxLength(4000),
   )
   .addChannelOption((opt) =>
     opt
       .setName("channel")
-      .setDescription("Channel to post in (defaults to current channel)")
+      .setDescription("Ziel-Channel (Standard: aktueller Channel)")
       .addChannelTypes(ChannelType.GuildText)
       .setRequired(false),
   )
   .addStringOption((opt) =>
     opt
-      .setName("color")
-      .setDescription("Embed accent colour (default: Blurple)")
+      .setName("farbe")
+      .setDescription("Embed-Farbe (Standard: Blurple)")
       .addChoices(...COLOR_OPTIONS)
       .setRequired(false),
   );
@@ -59,42 +51,37 @@ export async function handlePanelCommand(
 ): Promise<void> {
   if (!interaction.guild) return;
 
-  const title = interaction.options.getString("title", true);
-  const description = interaction.options.getString("description", true);
+  const title = interaction.options.getString("titel", true);
+  const description = interaction.options.getString("inhalt", true);
   const channelOption = interaction.options.getChannel("channel");
-  const colorHex = interaction.options.getString("color") ?? "5865F2";
+  const colorHex = interaction.options.getString("farbe") ?? "5865F2";
   const color = parseInt(colorHex, 16);
 
   const targetChannelId = channelOption?.id ?? interaction.channelId;
-  const targetChannel = interaction.guild.channels.cache.get(
-    targetChannelId,
-  ) as TextChannel | undefined;
 
-  if (!targetChannel || !("send" in targetChannel)) {
-    await interaction.reply({
-      embeds: [errorEmbed("Could not find or send to that channel.")],
-      flags: MessageFlags.Ephemeral,
-    });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+  let targetChannel: TextChannel | null = null;
+  try {
+    const fetched = await interaction.guild.channels.fetch(targetChannelId);
+    if (fetched && fetched.type === ChannelType.GuildText) {
+      targetChannel = fetched as TextChannel;
+    }
+  } catch {
+    // not found
+  }
+
+  if (!targetChannel) {
+    await interaction.editReply({ embeds: [errorEmbed("Channel nicht gefunden oder kein Text-Channel.")] });
     return;
   }
 
   try {
-    await targetChannel.send({
-      embeds: [customPanelEmbed(title, description, color)],
-    });
-
-    await interaction.reply({
-      embeds: [successEmbed(`Panel posted in <#${targetChannelId}>!`)],
-      flags: MessageFlags.Ephemeral,
-    });
+    await targetChannel.send({ embeds: [customPanelEmbed(title, description, color)] });
+    await interaction.editReply({ embeds: [successEmbed(`Panel in <#${targetChannelId}> gepostet!`)] });
   } catch {
-    await interaction.reply({
-      embeds: [
-        errorEmbed(
-          "Failed to post the panel. Check that I have **Send Messages** and **Embed Links** in that channel.",
-        ),
-      ],
-      flags: MessageFlags.Ephemeral,
+    await interaction.editReply({
+      embeds: [errorEmbed("Fehler beim Posten. Überprüfe meine **Nachrichten senden** und **Embeds** Berechtigungen.")],
     });
   }
 }

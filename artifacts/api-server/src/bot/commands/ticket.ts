@@ -25,25 +25,10 @@ export const ticketCommand = new SlashCommandBuilder()
       ),
   );
 
-export async function handleTicketCommand(interaction: ChatInputCommandInteraction): Promise<void> {
-  if (!interaction.guild) return;
-  if (interaction.options.getSubcommand() !== "panel") return;
-
-  const channelOpt = interaction.options.getChannel("channel");
-  const targetId = channelOpt?.id ?? interaction.channelId;
-  const targetChannel = interaction.guild.channels.cache.get(targetId) as TextChannel | undefined;
-
-  if (!targetChannel || !("send" in targetChannel)) {
-    await interaction.reply({ embeds: [errorEmbed("Channel nicht gefunden.")], flags: MessageFlags.Ephemeral });
-    return;
-  }
-
-  const iconURL = interaction.guild.iconURL({ size: 256 }) ?? undefined;
-  const name = interaction.guild.name;
-
+export async function sendTicketPanel(targetChannel: TextChannel, guildName: string, iconURL: string | undefined): Promise<void> {
   const embed = new EmbedBuilder()
     .setColor(0x5865f2)
-    .setAuthor({ name, iconURL })
+    .setAuthor({ name: guildName, iconURL })
     .setTitle("🎫  Support Ticket")
     .setDescription(
       `Brauchst du **Hilfe** oder hast ein **Anliegen**?\n` +
@@ -75,7 +60,7 @@ export async function handleTicketCommand(interaction: ChatInputCommandInteracti
         inline: false,
       },
     )
-    .setFooter({ text: `${name} • Support-System`, iconURL })
+    .setFooter({ text: `${guildName} • Support-System`, iconURL })
     .setTimestamp();
 
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -85,10 +70,39 @@ export async function handleTicketCommand(interaction: ChatInputCommandInteracti
       .setStyle(ButtonStyle.Primary),
   );
 
+  await targetChannel.send({ embeds: [embed], components: [row] });
+}
+
+export async function handleTicketCommand(interaction: ChatInputCommandInteraction): Promise<void> {
+  if (!interaction.guild) return;
+  if (interaction.options.getSubcommand() !== "panel") return;
+
+  const channelOpt = interaction.options.getChannel("channel");
+  const targetId = channelOpt?.id ?? interaction.channelId;
+
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+  let targetChannel: TextChannel | null = null;
   try {
-    await targetChannel.send({ embeds: [embed], components: [row] });
-    await interaction.reply({ embeds: [successEmbed(`Ticket-Panel in <#${targetId}> gepostet!`)], flags: MessageFlags.Ephemeral });
+    const fetched = await interaction.guild.channels.fetch(targetId);
+    if (fetched && fetched.type === ChannelType.GuildText) {
+      targetChannel = fetched as TextChannel;
+    }
   } catch {
-    await interaction.reply({ embeds: [errorEmbed("Fehler beim Posten. Überprüfe meine Berechtigungen.")], flags: MessageFlags.Ephemeral });
+    // channel not found
+  }
+
+  if (!targetChannel) {
+    await interaction.editReply({ embeds: [errorEmbed("Channel nicht gefunden oder kein Text-Channel.")] });
+    return;
+  }
+
+  const iconURL = interaction.guild.iconURL({ size: 256 }) ?? undefined;
+
+  try {
+    await sendTicketPanel(targetChannel, interaction.guild.name, iconURL);
+    await interaction.editReply({ embeds: [successEmbed(`Ticket-Panel in <#${targetId}> gepostet!`)] });
+  } catch {
+    await interaction.editReply({ embeds: [errorEmbed("Fehler beim Posten. Überprüfe meine Berechtigungen.")] });
   }
 }

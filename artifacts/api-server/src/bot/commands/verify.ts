@@ -29,27 +29,10 @@ export const verifyCommand = new SlashCommandBuilder()
       ),
   );
 
-export async function handleVerifyCommand(
-  interaction: ChatInputCommandInteraction,
-): Promise<void> {
-  if (!interaction.guild) return;
-  if (interaction.options.getSubcommand() !== "panel") return;
-
-  const channelOpt = interaction.options.getChannel("channel");
-  const targetId = channelOpt?.id ?? interaction.channelId;
-  const targetChannel = interaction.guild.channels.cache.get(targetId) as TextChannel | undefined;
-
-  if (!targetChannel || !("send" in targetChannel)) {
-    await interaction.reply({ embeds: [errorEmbed("Channel nicht gefunden.")], flags: MessageFlags.Ephemeral });
-    return;
-  }
-
-  const iconURL = interaction.guild.iconURL({ size: 256 }) ?? undefined;
-  const name = interaction.guild.name;
-
+export async function sendVerifyPanel(targetChannel: TextChannel, guildName: string, iconURL: string | undefined): Promise<void> {
   const embed = new EmbedBuilder()
     .setColor(0x5865f2)
-    .setAuthor({ name, iconURL })
+    .setAuthor({ name: guildName, iconURL })
     .setThumbnail(iconURL ?? null)
     .setTitle("🛡️  Server-Verifizierung")
     .setDescription(
@@ -82,7 +65,7 @@ export async function handleVerifyCommand(
         inline: false,
       },
     )
-    .setFooter({ text: `${name} • Einmalige Verifizierung`, iconURL })
+    .setFooter({ text: `${guildName} • Einmalige Verifizierung`, iconURL })
     .setTimestamp();
 
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -92,16 +75,41 @@ export async function handleVerifyCommand(
       .setStyle(ButtonStyle.Success),
   );
 
+  await targetChannel.send({ embeds: [embed], components: [row] });
+}
+
+export async function handleVerifyCommand(
+  interaction: ChatInputCommandInteraction,
+): Promise<void> {
+  if (!interaction.guild) return;
+  if (interaction.options.getSubcommand() !== "panel") return;
+
+  const channelOpt = interaction.options.getChannel("channel");
+  const targetId = channelOpt?.id ?? interaction.channelId;
+
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+  let targetChannel: TextChannel | null = null;
   try {
-    await targetChannel.send({ embeds: [embed], components: [row] });
-    await interaction.reply({
-      embeds: [successEmbed(`Verifizierungs-Panel in <#${targetId}> gepostet!`)],
-      flags: MessageFlags.Ephemeral,
-    });
+    const fetched = await interaction.guild.channels.fetch(targetId);
+    if (fetched && fetched.type === ChannelType.GuildText) {
+      targetChannel = fetched as TextChannel;
+    }
   } catch {
-    await interaction.reply({
-      embeds: [errorEmbed("Fehler beim Posten. Überprüfe meine Berechtigungen.")],
-      flags: MessageFlags.Ephemeral,
-    });
+    // channel not found
+  }
+
+  if (!targetChannel) {
+    await interaction.editReply({ embeds: [errorEmbed("Channel nicht gefunden oder kein Text-Channel.")] });
+    return;
+  }
+
+  const iconURL = interaction.guild.iconURL({ size: 256 }) ?? undefined;
+
+  try {
+    await sendVerifyPanel(targetChannel, interaction.guild.name, iconURL);
+    await interaction.editReply({ embeds: [successEmbed(`Verifizierungs-Panel in <#${targetId}> gepostet!`)] });
+  } catch {
+    await interaction.editReply({ embeds: [errorEmbed("Fehler beim Posten. Überprüfe meine Berechtigungen.")] });
   }
 }

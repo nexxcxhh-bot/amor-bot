@@ -16,26 +16,28 @@ import {
   TextInputBuilder,
   TextInputStyle,
   ComponentType,
+  ChannelType,
+  TextChannel,
 } from "discord.js";
 import { getGuildConfig, setGuildConfig } from "../storage.js";
 import { handleMemberWelcome } from "../features/welcome.js";
 
 export const adminCommand = new SlashCommandBuilder()
   .setName("admin")
-  .setDescription("🎛️ Open the unified admin control panel");
+  .setDescription("🎛️ Einheitliches Admin-Kontrollpanel öffnen");
 
 // ─── Shared helpers ────────────────────────────────────────────────────────────
 
 const SECTIONS = [
-  { value: "welcome", label: "👋  Welcome Messages", description: "Auto-greet new members" },
-  { value: "verify", label: "✅  Verification", description: "One-click server access" },
-  { value: "rules", label: "📜  Rules System", description: "Rules & accept button" },
-  { value: "tickets", label: "🎫  Ticket System", description: "Support tickets & feedback" },
-  { value: "giveaway", label: "🎉  Giveaways", description: "Start & manage giveaways" },
-  { value: "raid", label: "🛡️  Raid Protection", description: "Anti-raid settings" },
-  { value: "nuke", label: "💣  Nuke Protection", description: "Anti-nuke settings" },
-  { value: "toxic", label: "🤬  Toxic Filter", description: "Auto-timeout toxic users" },
-  { value: "stats", label: "📊  Server Stats", description: "Live stat channels" },
+  { value: "welcome", label: "👋  Welcome Messages", description: "Neue Mitglieder begrüßen" },
+  { value: "verify", label: "✅  Verifizierung", description: "Einmaliger Server-Zugang" },
+  { value: "rules", label: "📜  Regelwerk", description: "Regeln & Akzeptieren-Button" },
+  { value: "tickets", label: "🎫  Ticket-System", description: "Support-Tickets & Feedback" },
+  { value: "giveaway", label: "🎉  Giveaways", description: "Giveaways starten & verwalten" },
+  { value: "raid", label: "🛡️  Raid-Schutz", description: "Anti-Raid Einstellungen" },
+  { value: "nuke", label: "💣  Nuke-Schutz", description: "Anti-Nuke Einstellungen" },
+  { value: "toxic", label: "🤬  Toxic-Filter", description: "Toxische Nutzer auto-timeout" },
+  { value: "stats", label: "📊  Server-Stats", description: "Live-Statistik Channels" },
 ] as const;
 
 type Section = (typeof SECTIONS)[number]["value"];
@@ -48,14 +50,14 @@ function buildNavRow() {
   return new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
     new StringSelectMenuBuilder()
       .setCustomId("admin_nav")
-      .setPlaceholder("📂  Select a section to configure...")
+      .setPlaceholder("📂  Bereich auswählen...")
       .addOptions(SECTIONS.map((s) => new StringSelectMenuOptionBuilder().setLabel(s.label).setValue(s.value).setDescription(s.description))),
   );
 }
 
 function backRow() {
   return new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder().setCustomId("admin_back").setLabel("← Overview").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId("admin_back").setLabel("← Übersicht").setStyle(ButtonStyle.Secondary),
   );
 }
 
@@ -64,21 +66,21 @@ function backRow() {
 function buildOverview(guildName: string, iconURL: string | null, config: ReturnType<typeof getGuildConfig>): EmbedBuilder {
   return new EmbedBuilder()
     .setColor(0x5865f2)
-    .setAuthor({ name: `${guildName} — Admin Control Panel`, iconURL: iconURL ?? undefined })
-    .setTitle("⚙️  Bot Configuration Overview")
-    .setDescription("Select a section from the menu below to configure it.\n\u200b")
+    .setAuthor({ name: `${guildName} — Admin Kontrollpanel`, iconURL: iconURL ?? undefined })
+    .setTitle("⚙️  Bot-Konfiguration Übersicht")
+    .setDescription("Wähle einen Bereich aus dem Menü unten, um ihn zu konfigurieren.\n\u200b")
     .addFields(
-      { name: `${icon(config.welcome.enabled)}  Welcome`, value: config.welcome.channelId ? ch(config.welcome.channelId) : "`Not set`", inline: true },
-      { name: `${icon(config.verify.enabled)}  Verify`, value: config.verify.roleId ? role(config.verify.roleId) : "`Not set`", inline: true },
-      { name: `${icon(config.rules.enabled)}  Rules`, value: `${config.rules.rules.length} rule(s)`, inline: true },
-      { name: "🎫  Tickets", value: config.ticketSupportRoleId ? role(config.ticketSupportRoleId) : "`Not set`", inline: true },
-      { name: `${icon(config.raidProtection.enabled)}  Raid`, value: config.raidProtection.enabled ? `**${config.raidProtection.action}**` : "`off`", inline: true },
-      { name: `${icon(config.nukeProtection.enabled)}  Nuke`, value: config.nukeProtection.enabled ? `**${config.nukeProtection.action}**` : "`off`", inline: true },
-      { name: `${icon(config.toxicFilter.enabled)}  Toxic Filter`, value: config.toxicFilter.enabled ? `${config.toxicFilter.timeoutMinutes}min` : "`off`", inline: true },
-      { name: "📊  Stats", value: config.statsCategoryId ? "Active" : "`Not set`", inline: true },
-      { name: "🎉  Giveaways", value: "Use `/giveaway start`", inline: true },
+      { name: `${icon(config.welcome.enabled)}  Welcome`, value: config.welcome.channelId ? ch(config.welcome.channelId) : "`Nicht gesetzt`", inline: true },
+      { name: `${icon(config.verify.enabled)}  Verify`, value: config.verify.roleId ? role(config.verify.roleId) : "`Nicht gesetzt`", inline: true },
+      { name: `${icon(config.rules.enabled)}  Regeln`, value: `${config.rules.rules.length} Regel(n)`, inline: true },
+      { name: "🎫  Tickets", value: config.ticketSupportRoleId ? role(config.ticketSupportRoleId) : "`Nicht gesetzt`", inline: true },
+      { name: `${icon(config.raidProtection.enabled)}  Raid`, value: config.raidProtection.enabled ? `**${config.raidProtection.action}**` : "`aus`", inline: true },
+      { name: `${icon(config.nukeProtection.enabled)}  Nuke`, value: config.nukeProtection.enabled ? `**${config.nukeProtection.action}**` : "`aus`", inline: true },
+      { name: `${icon(config.toxicFilter.enabled)}  Toxic Filter`, value: config.toxicFilter.enabled ? `${config.toxicFilter.timeoutMinutes}min` : "`aus`", inline: true },
+      { name: "📊  Stats", value: config.statsCategoryId ? "Aktiv" : "`Nicht gesetzt`", inline: true },
+      { name: "🎉  Giveaways", value: "Nutze `/giveaway start`", inline: true },
     )
-    .setFooter({ text: "Tip: all changes take effect immediately", iconURL: iconURL ?? undefined })
+    .setFooter({ text: "Tipp: Alle Änderungen werden sofort aktiv", iconURL: iconURL ?? undefined })
     .setTimestamp();
 }
 
@@ -90,104 +92,109 @@ function buildSectionEmbed(section: Section, config: ReturnType<typeof getGuildC
   switch (section) {
     case "welcome":
       return e.setColor(0x5865f2).setTitle("👋  Welcome Messages").addFields(
-        { name: "Status", value: icon(config.welcome.enabled) + (config.welcome.enabled ? " Enabled" : " Disabled"), inline: true },
+        { name: "Status", value: icon(config.welcome.enabled) + (config.welcome.enabled ? " Aktiviert" : " Deaktiviert"), inline: true },
         { name: "Channel", value: ch(config.welcome.channelId), inline: true },
-        { name: "DM on join", value: config.welcome.dmUser ? "Yes" : "No", inline: true },
-        { name: "Custom DM text", value: config.welcome.message ? `\`${config.welcome.message.slice(0, 80)}…\`` : "`Default`", inline: false },
-      ).setFooter({ text: "Click Edit to change settings • Click Test to preview" });
+        { name: "DM bei Beitritt", value: config.welcome.dmUser ? "Ja" : "Nein", inline: true },
+        { name: "Eigener DM-Text", value: config.welcome.message ? `\`${config.welcome.message.slice(0, 80)}…\`` : "`Standard`", inline: false },
+      ).setFooter({ text: "Bearbeiten zum Ändern • Test zum Vorschauen" });
 
     case "verify":
-      return e.setColor(0x57f287).setTitle("✅  Verification System").addFields(
-        { name: "Status", value: icon(config.verify.enabled) + (config.verify.enabled ? " Enabled" : " Disabled"), inline: true },
-        { name: "Verified Role", value: role(config.verify.roleId), inline: true },
-        { name: "How to use", value: "After configuring, run `/verify panel #channel` to post the verify button.", inline: false },
-      ).setFooter({ text: "Click Edit to change settings" });
+      return e.setColor(0x57f287).setTitle("✅  Verifizierungs-System").addFields(
+        { name: "Status", value: icon(config.verify.enabled) + (config.verify.enabled ? " Aktiviert" : " Deaktiviert"), inline: true },
+        { name: "Verifiziert-Rolle", value: role(config.verify.roleId), inline: true },
+        { name: "Hinweis", value: "Klicke **Panel senden** um das Verifizierungs-Panel in einen Channel zu posten.", inline: false },
+      ).setFooter({ text: "Bearbeiten zum Ändern • Panel senden zum Posten" });
 
     case "rules":
-      return e.setColor(0xed4245).setTitle("📜  Rules System").addFields(
-        { name: "Status", value: icon(config.rules.enabled) + (config.rules.enabled ? " Enabled" : " Disabled"), inline: true },
-        { name: "Accept Role", value: role(config.rules.acceptRoleId), inline: true },
-        { name: "Rules count", value: `**${config.rules.rules.length}** rule(s)`, inline: true },
-        { name: "Current rules", value: config.rules.rules.length ? config.rules.rules.slice(0, 5).map((r, i) => `**${i + 1}.** ${r}`).join("\n") + (config.rules.rules.length > 5 ? "\n*…and more*" : "") : "*None yet — use `/rules add`*", inline: false },
-        { name: "How to use", value: "Run `/rules panel #channel` to post the rules embed.", inline: false },
-      ).setFooter({ text: "Click Edit to change settings" });
+      return e.setColor(0xed4245).setTitle("📜  Regelwerk").addFields(
+        { name: "Status", value: icon(config.rules.enabled) + (config.rules.enabled ? " Aktiviert" : " Deaktiviert"), inline: true },
+        { name: "Akzeptieren-Rolle", value: role(config.rules.acceptRoleId), inline: true },
+        { name: "Regelanzahl", value: `**${config.rules.rules.length}** Regel(n)`, inline: true },
+        { name: "Aktuelle Regeln", value: config.rules.rules.length ? config.rules.rules.slice(0, 5).map((r, i) => `**${i + 1}.** ${r}`).join("\n") + (config.rules.rules.length > 5 ? "\n*…und mehr*" : "") : "*Keine — nutze `/rules add`*", inline: false },
+        { name: "Hinweis", value: "Klicke **Panel senden** um das Regelwerk in einen Channel zu posten.", inline: false },
+      ).setFooter({ text: "Bearbeiten zum Ändern • Panel senden zum Posten" });
 
     case "tickets":
-      return e.setColor(0x5865f2).setTitle("🎫  Ticket System").addFields(
-        { name: "Support Role", value: role(config.ticketSupportRoleId), inline: true },
-        { name: "Log Channel", value: ch(config.ticketLogChannelId), inline: true },
-        { name: "Feedback Channel", value: ch(config.feedbackChannelId), inline: true },
-        { name: "How to use", value: "Run `/ticket panel #channel` to post the ticket button.", inline: false },
-      ).setFooter({ text: "Click Edit to change settings" });
+      return e.setColor(0x5865f2).setTitle("🎫  Ticket-System").addFields(
+        { name: "Support-Rolle", value: role(config.ticketSupportRoleId), inline: true },
+        { name: "Log-Channel", value: ch(config.ticketLogChannelId), inline: true },
+        { name: "Feedback-Channel", value: ch(config.feedbackChannelId), inline: true },
+        { name: "Hinweis", value: "Klicke **Panel senden** um das Ticket-Panel in einen Channel zu posten.", inline: false },
+      ).setFooter({ text: "Bearbeiten zum Ändern • Panel senden zum Posten" });
 
     case "giveaway":
-      return e.setColor(0xfee75c).setTitle("🎉  Giveaway System").setDescription(
-        "Use the `/giveaway` command to manage giveaways.\n\n" +
-        "**Commands:**\n" +
-        "`/giveaway start prize: duration: winners: channel:` — Start a giveaway\n" +
-        "`/giveaway end message-id:` — End early\n" +
-        "`/giveaway reroll message-id:` — Reroll winner\n" +
-        "`/giveaway list` — List active giveaways\n\n" +
-        "**Duration format:** `10m`, `1h`, `1d`, `7d`",
-      ).setFooter({ text: "Giveaways are managed via /giveaway commands" });
+      return e.setColor(0xfee75c).setTitle("🎉  Giveaway-System").setDescription(
+        "Nutze den `/giveaway` Befehl zum Verwalten.\n\n" +
+        "**Befehle:**\n" +
+        "`/giveaway start preis: dauer: gewinner: channel:` — Giveaway starten\n" +
+        "`/giveaway end nachrichten-id:` — Vorzeitig beenden\n" +
+        "`/giveaway reroll nachrichten-id:` — Gewinner neu auslosen\n" +
+        "`/giveaway list` — Aktive Giveaways anzeigen\n\n" +
+        "**Dauerformat:** `10m`, `1h`, `1d`, `7d`",
+      ).setFooter({ text: "Giveaways werden über /giveaway verwaltet" });
 
     case "raid":
-      return e.setColor(0xed4245).setTitle("🛡️  Raid Protection").addFields(
-        { name: "Status", value: icon(config.raidProtection.enabled) + (config.raidProtection.enabled ? " Enabled" : " Disabled"), inline: true },
-        { name: "Join threshold", value: `**${config.raidProtection.joinThreshold}** joins`, inline: true },
-        { name: "Time window", value: `**${config.raidProtection.timeWindowSeconds}s**`, inline: true },
-        { name: "Action", value: `**${config.raidProtection.action}**`, inline: true },
-      ).setFooter({ text: "Click Edit to change settings" });
+      return e.setColor(0xed4245).setTitle("🛡️  Raid-Schutz").addFields(
+        { name: "Status", value: icon(config.raidProtection.enabled) + (config.raidProtection.enabled ? " Aktiviert" : " Deaktiviert"), inline: true },
+        { name: "Beitritts-Schwellwert", value: `**${config.raidProtection.joinThreshold}** Beitritte`, inline: true },
+        { name: "Zeitfenster", value: `**${config.raidProtection.timeWindowSeconds}s**`, inline: true },
+        { name: "Aktion", value: `**${config.raidProtection.action}**`, inline: true },
+      ).setFooter({ text: "Bearbeiten zum Ändern" });
 
     case "nuke":
-      return e.setColor(0xed4245).setTitle("💣  Nuke Protection").addFields(
-        { name: "Status", value: icon(config.nukeProtection.enabled) + (config.nukeProtection.enabled ? " Enabled" : " Disabled"), inline: true },
-        { name: "Channel deletes", value: `**${config.nukeProtection.channelDeleteThreshold}** in 10s`, inline: true },
-        { name: "Role deletes", value: `**${config.nukeProtection.roleDeleteThreshold}** in 10s`, inline: true },
-        { name: "Mass bans", value: `**${config.nukeProtection.banThreshold}** in 10s`, inline: true },
-        { name: "Action", value: `**${config.nukeProtection.action}**`, inline: true },
-      ).setFooter({ text: "Click Edit to change settings" });
+      return e.setColor(0xed4245).setTitle("💣  Nuke-Schutz").addFields(
+        { name: "Status", value: icon(config.nukeProtection.enabled) + (config.nukeProtection.enabled ? " Aktiviert" : " Deaktiviert"), inline: true },
+        { name: "Channel-Löschungen", value: `**${config.nukeProtection.channelDeleteThreshold}** in 10s`, inline: true },
+        { name: "Rollen-Löschungen", value: `**${config.nukeProtection.roleDeleteThreshold}** in 10s`, inline: true },
+        { name: "Massen-Bans", value: `**${config.nukeProtection.banThreshold}** in 10s`, inline: true },
+        { name: "Aktion", value: `**${config.nukeProtection.action}**`, inline: true },
+      ).setFooter({ text: "Bearbeiten zum Ändern" });
 
     case "toxic":
-      return e.setColor(0xfee75c).setTitle("🤬  Toxic Filter").addFields(
-        { name: "Status", value: icon(config.toxicFilter.enabled) + (config.toxicFilter.enabled ? " Enabled" : " Disabled"), inline: true },
-        { name: "Timeout duration", value: `**${config.toxicFilter.timeoutMinutes} minutes**`, inline: true },
-        { name: "Custom blocked words", value: config.toxicFilter.customWords.length ? config.toxicFilter.customWords.map((w) => `\`${w}\``).join(", ") : "*None*", inline: false },
-      ).setFooter({ text: "Click Edit to change settings" });
+      return e.setColor(0xfee75c).setTitle("🤬  Toxic-Filter").addFields(
+        { name: "Status", value: icon(config.toxicFilter.enabled) + (config.toxicFilter.enabled ? " Aktiviert" : " Deaktiviert"), inline: true },
+        { name: "Timeout-Dauer", value: `**${config.toxicFilter.timeoutMinutes} Minuten**`, inline: true },
+        { name: "Eigene gesperrte Wörter", value: config.toxicFilter.customWords.length ? config.toxicFilter.customWords.map((w) => `\`${w}\``).join(", ") : "*Keine*", inline: false },
+      ).setFooter({ text: "Bearbeiten zum Ändern" });
 
     case "stats":
-      return e.setColor(0x5865f2).setTitle("📊  Server Stats").addFields(
-        { name: "Category", value: ch(config.statsCategoryId), inline: true },
-        { name: "Members channel", value: ch(config.memberCountChannelId), inline: true },
-        { name: "Bots channel", value: ch(config.botCountChannelId), inline: true },
-        { name: "Tickets channel", value: ch(config.ticketCountChannelId), inline: true },
-        { name: "Update interval", value: "Every **5 minutes** automatically", inline: false },
-      ).setFooter({ text: "Click Create/Recreate to set up stats channels" });
+      return e.setColor(0x5865f2).setTitle("📊  Server-Stats").addFields(
+        { name: "Kategorie", value: ch(config.statsCategoryId), inline: true },
+        { name: "Mitglieder-Channel", value: ch(config.memberCountChannelId), inline: true },
+        { name: "Bot-Channel", value: ch(config.botCountChannelId), inline: true },
+        { name: "Ticket-Channel", value: ch(config.ticketCountChannelId), inline: true },
+        { name: "Update-Intervall", value: "Alle **5 Minuten** automatisch", inline: false },
+      ).setFooter({ text: "Erstellen/Neuerstellen zum Einrichten der Stats-Channels" });
 
     default:
-      return e.setTitle("Section").setDescription("Unknown section");
+      return e.setTitle("Bereich").setDescription("Unbekannter Bereich");
   }
 }
 
 function buildSectionButtons(section: Section): ActionRowBuilder<ButtonBuilder> {
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder().setCustomId("admin_back").setLabel("← Back").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId("admin_back").setLabel("← Zurück").setStyle(ButtonStyle.Secondary),
   );
 
   if (section === "stats") {
     row.addComponents(
-      new ButtonBuilder().setCustomId("admin_create_stats").setLabel("🔧 Create/Recreate Stats").setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId("admin_create_stats").setLabel("🔧 Stats erstellen").setStyle(ButtonStyle.Primary),
     );
   } else if (section === "welcome") {
     row.addComponents(
-      new ButtonBuilder().setCustomId(`admin_edit_${section}`).setLabel("✏️ Edit").setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId("admin_test_welcome").setLabel("📨 Send Test Welcome").setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId(`admin_edit_${section}`).setLabel("✏️ Bearbeiten").setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId("admin_test_welcome").setLabel("📨 Test-Welcome senden").setStyle(ButtonStyle.Success),
     );
   } else if (section === "giveaway") {
-    // no edit button — managed via /giveaway
+    // no edit button
+  } else if (section === "verify" || section === "rules" || section === "tickets") {
+    row.addComponents(
+      new ButtonBuilder().setCustomId(`admin_edit_${section}`).setLabel("✏️ Bearbeiten").setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId(`admin_sendpanel_${section}`).setLabel("📤 Panel senden").setStyle(ButtonStyle.Success),
+    );
   } else {
     row.addComponents(
-      new ButtonBuilder().setCustomId(`admin_edit_${section}`).setLabel("✏️ Edit").setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId(`admin_edit_${section}`).setLabel("✏️ Bearbeiten").setStyle(ButtonStyle.Primary),
     );
   }
 
@@ -201,120 +208,144 @@ function buildModal(section: Section, config: ReturnType<typeof getGuildConfig>)
 
   switch (section) {
     case "welcome": {
-      modal.setTitle("Configure Welcome Messages");
+      modal.setTitle("Welcome Messages konfigurieren");
       modal.addComponents(
         new ActionRowBuilder<TextInputBuilder>().addComponents(
-          new TextInputBuilder().setCustomId("enabled").setLabel("Enable? (yes / no)").setStyle(TextInputStyle.Short).setValue(config.welcome.enabled ? "yes" : "no").setRequired(true),
+          new TextInputBuilder().setCustomId("enabled").setLabel("Aktivieren? (ja / nein)").setStyle(TextInputStyle.Short).setValue(config.welcome.enabled ? "ja" : "nein").setRequired(true),
         ),
         new ActionRowBuilder<TextInputBuilder>().addComponents(
-          new TextInputBuilder().setCustomId("channel_id").setLabel("Welcome Channel ID").setStyle(TextInputStyle.Short).setValue(config.welcome.channelId ?? "").setRequired(false).setPlaceholder("Right-click channel → Copy ID"),
+          new TextInputBuilder().setCustomId("channel_id").setLabel("Welcome-Channel ID").setStyle(TextInputStyle.Short).setValue(config.welcome.channelId ?? "").setRequired(false).setPlaceholder("Rechtsklick auf Channel → ID kopieren"),
         ),
         new ActionRowBuilder<TextInputBuilder>().addComponents(
-          new TextInputBuilder().setCustomId("dm_user").setLabel("Also DM new members? (yes / no)").setStyle(TextInputStyle.Short).setValue(config.welcome.dmUser ? "yes" : "no").setRequired(true),
+          new TextInputBuilder().setCustomId("dm_user").setLabel("Neue Mitglieder per DM begrüßen? (ja / nein)").setStyle(TextInputStyle.Short).setValue(config.welcome.dmUser ? "ja" : "nein").setRequired(true),
         ),
         new ActionRowBuilder<TextInputBuilder>().addComponents(
-          new TextInputBuilder().setCustomId("message").setLabel("Custom DM text (leave blank for default)").setStyle(TextInputStyle.Paragraph).setValue(config.welcome.message ?? "").setRequired(false).setPlaceholder("Use {user}, {server}, {membercount}"),
+          new TextInputBuilder().setCustomId("message").setLabel("Eigener DM-Text (leer = Standard)").setStyle(TextInputStyle.Paragraph).setValue(config.welcome.message ?? "").setRequired(false).setPlaceholder("Nutze {user}, {server}, {membercount}"),
         ),
       );
       break;
     }
     case "verify": {
-      modal.setTitle("Configure Verification");
+      modal.setTitle("Verifizierung konfigurieren");
       modal.addComponents(
         new ActionRowBuilder<TextInputBuilder>().addComponents(
-          new TextInputBuilder().setCustomId("enabled").setLabel("Enable? (yes / no)").setStyle(TextInputStyle.Short).setValue(config.verify.enabled ? "yes" : "no").setRequired(true),
+          new TextInputBuilder().setCustomId("enabled").setLabel("Aktivieren? (ja / nein)").setStyle(TextInputStyle.Short).setValue(config.verify.enabled ? "ja" : "nein").setRequired(true),
         ),
         new ActionRowBuilder<TextInputBuilder>().addComponents(
-          new TextInputBuilder().setCustomId("role_id").setLabel("Verified Role ID").setStyle(TextInputStyle.Short).setValue(config.verify.roleId ?? "").setRequired(false).setPlaceholder("Right-click role → Copy ID"),
+          new TextInputBuilder().setCustomId("role_id").setLabel("Verifiziert-Rolle ID").setStyle(TextInputStyle.Short).setValue(config.verify.roleId ?? "").setRequired(false).setPlaceholder("Rechtsklick auf Rolle → ID kopieren"),
         ),
       );
       break;
     }
     case "rules": {
-      modal.setTitle("Configure Rules System");
+      modal.setTitle("Regelwerk konfigurieren");
       modal.addComponents(
         new ActionRowBuilder<TextInputBuilder>().addComponents(
-          new TextInputBuilder().setCustomId("enabled").setLabel("Enable? (yes / no)").setStyle(TextInputStyle.Short).setValue(config.rules.enabled ? "yes" : "no").setRequired(true),
+          new TextInputBuilder().setCustomId("enabled").setLabel("Aktivieren? (ja / nein)").setStyle(TextInputStyle.Short).setValue(config.rules.enabled ? "ja" : "nein").setRequired(true),
         ),
         new ActionRowBuilder<TextInputBuilder>().addComponents(
-          new TextInputBuilder().setCustomId("accept_role_id").setLabel("Accept Role ID").setStyle(TextInputStyle.Short).setValue(config.rules.acceptRoleId ?? "").setRequired(false).setPlaceholder("Right-click role → Copy ID"),
+          new TextInputBuilder().setCustomId("accept_role_id").setLabel("Akzeptieren-Rolle ID").setStyle(TextInputStyle.Short).setValue(config.rules.acceptRoleId ?? "").setRequired(false).setPlaceholder("Rechtsklick auf Rolle → ID kopieren"),
         ),
       );
       break;
     }
     case "tickets": {
-      modal.setTitle("Configure Ticket System");
+      modal.setTitle("Ticket-System konfigurieren");
       modal.addComponents(
         new ActionRowBuilder<TextInputBuilder>().addComponents(
-          new TextInputBuilder().setCustomId("support_role_id").setLabel("Support Role ID").setStyle(TextInputStyle.Short).setValue(config.ticketSupportRoleId ?? "").setRequired(false).setPlaceholder("Right-click role → Copy ID"),
+          new TextInputBuilder().setCustomId("support_role_id").setLabel("Support-Rolle ID").setStyle(TextInputStyle.Short).setValue(config.ticketSupportRoleId ?? "").setRequired(false).setPlaceholder("Rechtsklick auf Rolle → ID kopieren"),
         ),
         new ActionRowBuilder<TextInputBuilder>().addComponents(
-          new TextInputBuilder().setCustomId("log_channel_id").setLabel("Log Channel ID").setStyle(TextInputStyle.Short).setValue(config.ticketLogChannelId ?? "").setRequired(false),
+          new TextInputBuilder().setCustomId("log_channel_id").setLabel("Log-Channel ID").setStyle(TextInputStyle.Short).setValue(config.ticketLogChannelId ?? "").setRequired(false),
         ),
         new ActionRowBuilder<TextInputBuilder>().addComponents(
-          new TextInputBuilder().setCustomId("feedback_channel_id").setLabel("Feedback Channel ID").setStyle(TextInputStyle.Short).setValue(config.feedbackChannelId ?? "").setRequired(false),
+          new TextInputBuilder().setCustomId("feedback_channel_id").setLabel("Feedback-Channel ID").setStyle(TextInputStyle.Short).setValue(config.feedbackChannelId ?? "").setRequired(false),
         ),
       );
       break;
     }
     case "raid": {
-      modal.setTitle("Configure Raid Protection");
+      modal.setTitle("Raid-Schutz konfigurieren");
       modal.addComponents(
         new ActionRowBuilder<TextInputBuilder>().addComponents(
-          new TextInputBuilder().setCustomId("enabled").setLabel("Enable? (yes / no)").setStyle(TextInputStyle.Short).setValue(config.raidProtection.enabled ? "yes" : "no").setRequired(true),
+          new TextInputBuilder().setCustomId("enabled").setLabel("Aktivieren? (ja / nein)").setStyle(TextInputStyle.Short).setValue(config.raidProtection.enabled ? "ja" : "nein").setRequired(true),
         ),
         new ActionRowBuilder<TextInputBuilder>().addComponents(
-          new TextInputBuilder().setCustomId("threshold").setLabel("Join threshold (number)").setStyle(TextInputStyle.Short).setValue(String(config.raidProtection.joinThreshold)).setRequired(true),
+          new TextInputBuilder().setCustomId("threshold").setLabel("Beitritts-Schwellwert (Zahl)").setStyle(TextInputStyle.Short).setValue(String(config.raidProtection.joinThreshold)).setRequired(true),
         ),
         new ActionRowBuilder<TextInputBuilder>().addComponents(
-          new TextInputBuilder().setCustomId("window").setLabel("Time window in seconds").setStyle(TextInputStyle.Short).setValue(String(config.raidProtection.timeWindowSeconds)).setRequired(true),
+          new TextInputBuilder().setCustomId("window").setLabel("Zeitfenster in Sekunden").setStyle(TextInputStyle.Short).setValue(String(config.raidProtection.timeWindowSeconds)).setRequired(true),
         ),
         new ActionRowBuilder<TextInputBuilder>().addComponents(
-          new TextInputBuilder().setCustomId("action").setLabel("Action (kick / ban / lockdown)").setStyle(TextInputStyle.Short).setValue(config.raidProtection.action).setRequired(true),
+          new TextInputBuilder().setCustomId("action").setLabel("Aktion (kick / ban / lockdown)").setStyle(TextInputStyle.Short).setValue(config.raidProtection.action).setRequired(true),
         ),
       );
       break;
     }
     case "nuke": {
-      modal.setTitle("Configure Nuke Protection");
+      modal.setTitle("Nuke-Schutz konfigurieren");
       modal.addComponents(
         new ActionRowBuilder<TextInputBuilder>().addComponents(
-          new TextInputBuilder().setCustomId("enabled").setLabel("Enable? (yes / no)").setStyle(TextInputStyle.Short).setValue(config.nukeProtection.enabled ? "yes" : "no").setRequired(true),
+          new TextInputBuilder().setCustomId("enabled").setLabel("Aktivieren? (ja / nein)").setStyle(TextInputStyle.Short).setValue(config.nukeProtection.enabled ? "ja" : "nein").setRequired(true),
         ),
         new ActionRowBuilder<TextInputBuilder>().addComponents(
-          new TextInputBuilder().setCustomId("channel_threshold").setLabel("Channel delete threshold").setStyle(TextInputStyle.Short).setValue(String(config.nukeProtection.channelDeleteThreshold)).setRequired(true),
+          new TextInputBuilder().setCustomId("channel_threshold").setLabel("Channel-Lösch-Schwellwert").setStyle(TextInputStyle.Short).setValue(String(config.nukeProtection.channelDeleteThreshold)).setRequired(true),
         ),
         new ActionRowBuilder<TextInputBuilder>().addComponents(
-          new TextInputBuilder().setCustomId("role_threshold").setLabel("Role delete threshold").setStyle(TextInputStyle.Short).setValue(String(config.nukeProtection.roleDeleteThreshold)).setRequired(true),
+          new TextInputBuilder().setCustomId("role_threshold").setLabel("Rollen-Lösch-Schwellwert").setStyle(TextInputStyle.Short).setValue(String(config.nukeProtection.roleDeleteThreshold)).setRequired(true),
         ),
         new ActionRowBuilder<TextInputBuilder>().addComponents(
-          new TextInputBuilder().setCustomId("ban_threshold").setLabel("Mass ban threshold").setStyle(TextInputStyle.Short).setValue(String(config.nukeProtection.banThreshold)).setRequired(true),
+          new TextInputBuilder().setCustomId("ban_threshold").setLabel("Massen-Ban-Schwellwert").setStyle(TextInputStyle.Short).setValue(String(config.nukeProtection.banThreshold)).setRequired(true),
         ),
         new ActionRowBuilder<TextInputBuilder>().addComponents(
-          new TextInputBuilder().setCustomId("action").setLabel("Action (kick / ban)").setStyle(TextInputStyle.Short).setValue(config.nukeProtection.action).setRequired(true),
+          new TextInputBuilder().setCustomId("action").setLabel("Aktion (kick / ban)").setStyle(TextInputStyle.Short).setValue(config.nukeProtection.action).setRequired(true),
         ),
       );
       break;
     }
     case "toxic": {
-      modal.setTitle("Configure Toxic Filter");
+      modal.setTitle("Toxic-Filter konfigurieren");
       modal.addComponents(
         new ActionRowBuilder<TextInputBuilder>().addComponents(
-          new TextInputBuilder().setCustomId("enabled").setLabel("Enable? (yes / no)").setStyle(TextInputStyle.Short).setValue(config.toxicFilter.enabled ? "yes" : "no").setRequired(true),
+          new TextInputBuilder().setCustomId("enabled").setLabel("Aktivieren? (ja / nein)").setStyle(TextInputStyle.Short).setValue(config.toxicFilter.enabled ? "ja" : "nein").setRequired(true),
         ),
         new ActionRowBuilder<TextInputBuilder>().addComponents(
-          new TextInputBuilder().setCustomId("timeout").setLabel("Timeout in minutes").setStyle(TextInputStyle.Short).setValue(String(config.toxicFilter.timeoutMinutes)).setRequired(true),
+          new TextInputBuilder().setCustomId("timeout").setLabel("Timeout in Minuten").setStyle(TextInputStyle.Short).setValue(String(config.toxicFilter.timeoutMinutes)).setRequired(true),
         ),
         new ActionRowBuilder<TextInputBuilder>().addComponents(
-          new TextInputBuilder().setCustomId("add_word").setLabel("Add blocked word (leave blank to skip)").setStyle(TextInputStyle.Short).setRequired(false).setValue(""),
+          new TextInputBuilder().setCustomId("add_word").setLabel("Wort hinzufügen (leer = überspringen)").setStyle(TextInputStyle.Short).setRequired(false).setValue(""),
         ),
         new ActionRowBuilder<TextInputBuilder>().addComponents(
-          new TextInputBuilder().setCustomId("remove_word").setLabel("Remove blocked word (leave blank to skip)").setStyle(TextInputStyle.Short).setRequired(false).setValue(""),
+          new TextInputBuilder().setCustomId("remove_word").setLabel("Wort entfernen (leer = überspringen)").setStyle(TextInputStyle.Short).setRequired(false).setValue(""),
         ),
       );
       break;
     }
   }
+
+  return modal;
+}
+
+function buildSendPanelModal(section: "verify" | "rules" | "tickets"): ModalBuilder {
+  const labels: Record<string, string> = {
+    verify: "Verifizierungs-Panel senden",
+    rules: "Regelwerk-Panel senden",
+    tickets: "Ticket-Panel senden",
+  };
+  const modal = new ModalBuilder()
+    .setCustomId(`admin_sendpanel_modal_${section}`)
+    .setTitle(labels[section] ?? "Panel senden");
+
+  modal.addComponents(
+    new ActionRowBuilder<TextInputBuilder>().addComponents(
+      new TextInputBuilder()
+        .setCustomId("channel_id")
+        .setLabel("Ziel-Channel ID")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setPlaceholder("Rechtsklick auf Channel → ID kopieren"),
+    ),
+  );
 
   return modal;
 }
@@ -325,9 +356,54 @@ async function handleModalSubmit(interaction: ModalSubmitInteraction): Promise<v
   const guildId = interaction.guildId;
   if (!guildId || !interaction.guild) return;
 
+  // Handle "send panel" modals
+  if (interaction.customId.startsWith("admin_sendpanel_modal_")) {
+    const section = interaction.customId.replace("admin_sendpanel_modal_", "") as "verify" | "rules" | "tickets";
+    const channelId = interaction.fields.getTextInputValue("channel_id").trim();
+
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+    let targetChannel: TextChannel | null = null;
+    try {
+      const fetched = await interaction.guild.channels.fetch(channelId);
+      if (fetched && fetched.type === ChannelType.GuildText) {
+        targetChannel = fetched as TextChannel;
+      }
+    } catch {
+      // not found
+    }
+
+    if (!targetChannel) {
+      await interaction.editReply({ content: `❌ Channel \`${channelId}\` nicht gefunden. Bitte prüfe die ID.` });
+      return;
+    }
+
+    const iconURL = interaction.guild.iconURL({ size: 256 }) ?? undefined;
+    const guildName = interaction.guild.name;
+
+    try {
+      if (section === "verify") {
+        const { sendVerifyPanel } = await import("./verify.js");
+        await sendVerifyPanel(targetChannel, guildName, iconURL);
+      } else if (section === "rules") {
+        const config = getGuildConfig(guildId);
+        const { sendRulesPanel } = await import("./rules.js");
+        await sendRulesPanel(targetChannel, config.rules.rules, guildName, iconURL);
+      } else if (section === "tickets") {
+        const { sendTicketPanel } = await import("./ticket.js");
+        await sendTicketPanel(targetChannel, guildName, iconURL);
+      }
+      await interaction.editReply({ content: `✅ Panel erfolgreich in <#${channelId}> gepostet!` });
+    } catch {
+      await interaction.editReply({ content: "❌ Fehler beim Posten. Überprüfe meine Berechtigungen in dem Channel." });
+    }
+    return;
+  }
+
+  // Handle config modals
   const config = getGuildConfig(guildId);
   const section = interaction.customId.replace("admin_modal_", "") as Section;
-  const yes = (v: string) => v.trim().toLowerCase() === "yes";
+  const yes = (v: string) => ["ja", "yes", "1", "true"].includes(v.trim().toLowerCase());
   const num = (v: string, fallback: number) => {
     const n = parseInt(v.trim(), 10);
     return isNaN(n) ? fallback : n;
@@ -415,7 +491,7 @@ async function handleModalSubmit(interaction: ModalSubmitInteraction): Promise<v
       }
     }
   } catch {
-    await interaction.reply({ content: "❌ Failed to save. Check your inputs.", ephemeral: true });
+    await interaction.reply({ content: "❌ Speichern fehlgeschlagen. Überprüfe deine Eingaben.", flags: MessageFlags.Ephemeral });
     return;
   }
 
@@ -423,7 +499,7 @@ async function handleModalSubmit(interaction: ModalSubmitInteraction): Promise<v
   await interaction.reply({
     embeds: [
       buildSectionEmbed(section, updated)
-        .setDescription("✅  **Saved successfully!** Your changes are now active.\n\u200b"),
+        .setDescription("✅  **Erfolgreich gespeichert!** Deine Änderungen sind jetzt aktiv.\n\u200b"),
     ],
     components: [buildSectionButtons(section), buildNavRow()],
     flags: MessageFlags.Ephemeral,
@@ -450,7 +526,6 @@ export async function handleAdminInteraction(
 ): Promise<void> {
   if (!interaction.guild || !interaction.guildId) return;
 
-  // Modal submit
   if (interaction.isModalSubmit()) {
     await handleModalSubmit(interaction);
     return;
@@ -458,7 +533,6 @@ export async function handleAdminInteraction(
 
   const config = getGuildConfig(interaction.guildId);
 
-  // Select menu navigation
   if (interaction.isStringSelectMenu() && interaction.customId === "admin_nav") {
     const section = interaction.values[0] as Section;
     await interaction.update({
@@ -471,7 +545,6 @@ export async function handleAdminInteraction(
   if (!interaction.isButton()) return;
   const { customId } = interaction;
 
-  // Back to overview
   if (customId === "admin_back") {
     await interaction.update({
       embeds: [buildOverview(interaction.guild.name, interaction.guild.iconURL(), config)],
@@ -480,7 +553,6 @@ export async function handleAdminInteraction(
     return;
   }
 
-  // Create stats
   if (customId === "admin_create_stats") {
     await interaction.deferUpdate();
     try {
@@ -488,19 +560,18 @@ export async function handleAdminInteraction(
       await createStatsChannels(interaction.guild);
       const updated = getGuildConfig(interaction.guildId);
       await interaction.editReply({
-        embeds: [buildSectionEmbed("stats", updated).setDescription("✅  **Stats channels created!** They update every 5 minutes.\n\u200b")],
+        embeds: [buildSectionEmbed("stats", updated).setDescription("✅  **Stats-Channels erstellt!** Sie aktualisieren sich alle 5 Minuten.\n\u200b")],
         components: [buildSectionButtons("stats"), buildNavRow()],
       });
     } catch {
       await interaction.editReply({
-        embeds: [buildSectionEmbed("stats", config).setDescription("❌  Failed — make sure I have **Manage Channels** permission.\n\u200b")],
+        embeds: [buildSectionEmbed("stats", config).setDescription("❌  Fehlgeschlagen — stelle sicher dass ich **Channels verwalten** Berechtigung habe.\n\u200b")],
         components: [buildSectionButtons("stats"), buildNavRow()],
       });
     }
     return;
   }
 
-  // Test welcome
   if (customId === "admin_test_welcome") {
     await interaction.deferUpdate();
     const member = interaction.member;
@@ -509,9 +580,17 @@ export async function handleAdminInteraction(
     }
     const updated = getGuildConfig(interaction.guildId);
     await interaction.editReply({
-      embeds: [buildSectionEmbed("welcome", updated).setDescription("📨  **Test welcome sent!** Check your welcome channel.\n\u200b")],
+      embeds: [buildSectionEmbed("welcome", updated).setDescription("📨  **Test-Welcome gesendet!** Überprüfe deinen Welcome-Channel.\n\u200b")],
       components: [buildSectionButtons("welcome"), buildNavRow()],
     });
+    return;
+  }
+
+  // Panel senden buttons
+  if (customId.startsWith("admin_sendpanel_")) {
+    const section = customId.replace("admin_sendpanel_", "") as "verify" | "rules" | "tickets";
+    const modal = buildSendPanelModal(section);
+    await interaction.showModal(modal);
     return;
   }
 

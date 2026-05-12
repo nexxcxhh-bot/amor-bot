@@ -13,7 +13,6 @@ import {
 import { getGuildConfig, setGuildConfig } from "../storage.js";
 import { successEmbed, errorEmbed } from "../utils/embeds.js";
 
-// Category icons that cycle for each rule
 const CAT_ICONS = ["◈", "◆", "◉", "◎", "◇", "◈", "◆", "◉", "◎", "◇", "◈", "◆", "◉"];
 
 export const rulesCommand = new SlashCommandBuilder()
@@ -41,6 +40,76 @@ export const rulesCommand = new SlashCommandBuilder()
       .addIntegerOption((opt) => opt.setName("nummer").setDescription("Regelnummer").setMinValue(1).setRequired(true)),
   )
   .addSubcommand((sub) => sub.setName("list").setDescription("Alle Regeln anzeigen"));
+
+const buildRuleText = (rules: string[]): string => {
+  return rules
+    .map((r, i) => {
+      const icon = CAT_ICONS[i % CAT_ICONS.length] ?? "◆";
+      const parts = r.split(" — ");
+      if (parts.length >= 2) {
+        return `${icon}  **${i + 1} · ${parts[0]!.replace(/\*\*/g, "")}**\n┃ ${parts.slice(1).join(" — ")}`;
+      }
+      return `${icon}  **${i + 1} ·** ${r}`;
+    })
+    .join("\n\n");
+};
+
+export async function sendRulesPanel(targetChannel: TextChannel, rules: string[], guildName: string, iconURL: string | undefined): Promise<void> {
+  const CHUNK_SIZE = 6;
+  const chunks: string[][] = [];
+  for (let i = 0; i < rules.length; i += CHUNK_SIZE) {
+    chunks.push(rules.slice(i, i + CHUNK_SIZE));
+  }
+  if (chunks.length === 0) chunks.push([]);
+
+  const DIV = "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬";
+
+  const embeds = chunks.map((chunk, idx) => {
+    const isFirst = idx === 0;
+    const isLast = idx === chunks.length - 1;
+    const ruleText =
+      chunk.length > 0
+        ? buildRuleText(chunk)
+        : "*Noch keine Regeln. Nutze `/rules add`.*";
+
+    const e = new EmbedBuilder().setColor(0x2b2d31);
+
+    if (isFirst) {
+      e.setAuthor({ name: `${guildName} · Server-Regelwerk`, iconURL })
+        .setTitle("📜  Regelwerk")
+        .setDescription(`Bitte lies alle Regeln sorgfältig durch und halte dich daran.\n\n${DIV}\n\n${ruleText}`);
+    } else {
+      e.setDescription(`${ruleText}`);
+    }
+
+    if (isLast) {
+      e.addFields({
+        name: "\u200b",
+        value:
+          `${DIV}\n` +
+          `📌  **Durch Klicken auf den Button bestätigst du, dass du alle Regeln gelesen hast und ihnen zustimmst.**\n` +
+          `Bei Verstößen behält sich das Team Maßnahmen bis zum permanenten Bann vor.`,
+      })
+        .setFooter({ text: `${guildName} • Mit dem Klicken des Buttons stimmst du allen Regeln zu.`, iconURL })
+        .setTimestamp();
+    }
+    return e;
+  });
+
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId("rules_accept")
+      .setLabel("✅  Regeln akzeptieren")
+      .setStyle(ButtonStyle.Success),
+  );
+
+  for (let i = 0; i < embeds.length; i++) {
+    await targetChannel.send({
+      embeds: [embeds[i]!],
+      components: i === embeds.length - 1 ? [row] : [],
+    });
+  }
+}
 
 export async function handleRulesCommand(interaction: ChatInputCommandInteraction): Promise<void> {
   if (!interaction.guild) return;
@@ -86,97 +155,31 @@ export async function handleRulesCommand(interaction: ChatInputCommandInteractio
   if (sub === "panel") {
     const channelOpt = interaction.options.getChannel("channel");
     const targetId = channelOpt?.id ?? interaction.channelId;
-    const targetChannel = interaction.guild.channels.cache.get(targetId) as TextChannel | undefined;
 
-    if (!targetChannel || !("send" in targetChannel)) {
-      await interaction.reply({ embeds: [errorEmbed("Channel nicht gefunden.")], flags: MessageFlags.Ephemeral });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+    let targetChannel: TextChannel | null = null;
+    try {
+      const fetched = await interaction.guild.channels.fetch(targetId);
+      if (fetched && fetched.type === ChannelType.GuildText) {
+        targetChannel = fetched as TextChannel;
+      }
+    } catch {
+      // channel not found
+    }
+
+    if (!targetChannel) {
+      await interaction.editReply({ embeds: [errorEmbed("Channel nicht gefunden oder kein Text-Channel.")] });
       return;
     }
 
-    const rules = config.rules.rules;
     const iconURL = interaction.guild.iconURL({ size: 256 }) ?? undefined;
-    const name = interaction.guild.name;
-
-    // Build rule blocks — each formatted with icon, bold title, indented details
-    const buildRuleText = (rules: string[]): string => {
-      return rules
-        .map((r, i) => {
-          const icon = CAT_ICONS[i % CAT_ICONS.length] ?? "◆";
-          // Bold part is before " — ", rest is description
-          const parts = r.split(" — ");
-          if (parts.length >= 2) {
-            return `${icon}  **${i + 1} · ${parts[0]!.replace(/\*\*/g, "")}**\n┃ ${parts.slice(1).join(" — ")}`;
-          }
-          return `${icon}  **${i + 1} ·** ${r}`;
-        })
-        .join("\n\n");
-    };
-
-    // Split into chunks of max 6 rules per embed to stay within limits
-    const CHUNK_SIZE = 6;
-    const chunks: string[][] = [];
-    for (let i = 0; i < rules.length; i += CHUNK_SIZE) {
-      chunks.push(rules.slice(i, i + CHUNK_SIZE));
-    }
-
-    // If no rules, show placeholder
-    if (chunks.length === 0) chunks.push([]);
-
-    const DIV = "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬";
-
-    const embeds = chunks.map((chunk, idx) => {
-      const isFirst = idx === 0;
-      const isLast = idx === chunks.length - 1;
-
-      const ruleText =
-        chunk.length > 0
-          ? buildRuleText(chunk.map((r, i) => r))
-          : "*Noch keine Regeln. Nutze `/rules add`.*";
-
-      const e = new EmbedBuilder().setColor(0x2b2d31);
-
-      if (isFirst) {
-        e.setAuthor({ name: `${name} · Server-Regelwerk`, iconURL })
-          .setTitle("📜  Regelwerk")
-          .setDescription(
-            `Bitte lies alle Regeln sorgfältig durch und halte dich daran.\n\n${DIV}\n\n${ruleText}`,
-          );
-      } else {
-        e.setDescription(`${ruleText}`);
-      }
-
-      if (isLast) {
-        e.addFields({
-          name: "\u200b",
-          value:
-            `${DIV}\n` +
-            `📌  **Durch Klicken auf den Button bestätigst du, dass du alle Regeln gelesen hast und ihnen zustimmst.**\n` +
-            `Bei Verstößen behält sich das Team Maßnahmen bis zum permanenten Bann vor.`,
-        })
-          .setFooter({ text: `${name} • Mit dem Klicken des Buttons stimmst du allen Regeln zu.`, iconURL })
-          .setTimestamp();
-      }
-
-      return e;
-    });
-
-    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder()
-        .setCustomId("rules_accept")
-        .setLabel("✅  Regeln akzeptieren")
-        .setStyle(ButtonStyle.Success),
-    );
 
     try {
-      for (let i = 0; i < embeds.length; i++) {
-        await targetChannel.send({
-          embeds: [embeds[i]!],
-          components: i === embeds.length - 1 ? [row] : [],
-        });
-      }
-      await interaction.reply({ embeds: [successEmbed(`Regelwerk-Panel in <#${targetId}> gepostet!`)], flags: MessageFlags.Ephemeral });
+      await sendRulesPanel(targetChannel, config.rules.rules, interaction.guild.name, iconURL);
+      await interaction.editReply({ embeds: [successEmbed(`Regelwerk-Panel in <#${targetId}> gepostet!`)] });
     } catch {
-      await interaction.reply({ embeds: [errorEmbed("Fehler beim Posten. Überprüfe meine Berechtigungen.")], flags: MessageFlags.Ephemeral });
+      await interaction.editReply({ embeds: [errorEmbed("Fehler beim Posten. Überprüfe meine Berechtigungen.")] });
     }
   }
 }
