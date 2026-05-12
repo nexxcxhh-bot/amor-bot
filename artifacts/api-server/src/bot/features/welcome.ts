@@ -1,101 +1,118 @@
 import { GuildMember, EmbedBuilder, TextChannel } from "discord.js";
 import { getGuildConfig } from "../storage.js";
 
+const DIV = "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬";
+
+function ordinal(n: number): string {
+  if (n >= 1000) return `${(n / 1000).toFixed(1).replace(".", ",")}k`;
+  return n.toLocaleString("de-DE");
+}
+
+function accountAge(createdAt: number): string {
+  const days = Math.floor((Date.now() - createdAt) / 86_400_000);
+  if (days === 0) return "Heute erstellt";
+  if (days === 1) return "vor 1 Tag erstellt";
+  if (days < 30) return `vor ${days} Tagen erstellt`;
+  const months = Math.floor(days / 30);
+  if (months === 1) return "vor 1 Monat erstellt";
+  if (months < 12) return `vor ${months} Monaten erstellt`;
+  const years = Math.floor(days / 365);
+  return `vor ${years} Jahr${years > 1 ? "en" : ""} erstellt`;
+}
+
 function buildWelcomeEmbed(member: GuildMember): EmbedBuilder {
   const guild = member.guild;
-  const memberNumber = guild.memberCount;
-  const accountAgeDays = Math.floor((Date.now() - member.user.createdTimestamp) / 86_400_000);
-  const accountStr =
-    accountAgeDays === 0
-      ? "Heute erstellt"
-      : accountAgeDays === 1
-      ? "vor 1 Tag erstellt"
-      : `vor ${accountAgeDays} Tagen erstellt`;
+  const count = guild.memberCount;
+  const iconURL = guild.iconURL({ size: 256 }) ?? undefined;
 
   return new EmbedBuilder()
     .setColor(0x5865f2)
-    .setAuthor({
-      name: guild.name,
-      iconURL: guild.iconURL() ?? undefined,
-    })
-    .setTitle(`✦  Willkommen auf ${guild.name}`)
+    .setAuthor({ name: guild.name, iconURL })
+    .setTitle(`✦  Willkommen auf ${guild.name}!`)
     .setThumbnail(member.user.displayAvatarURL({ size: 256 }))
     .setDescription(
-      `Schön, dass du hier bist – wir freuen uns, dich in unserer Community zu haben.\n` +
-      `Hier kannst du dich mit anderen austauschen, neue Leute kennenlernen und einfach eine gute Zeit haben.\n\n` +
-      `Achte bitte auf einen respektvollen Umgang miteinander und hab Spaß beim Mitmachen!\n\n` +
-      `Wenn du Fragen hast, steht dir das Team jederzeit zur Verfügung.`,
+      `Hey <@${member.id}>, schön dass du hier bist! 👋\n\n` +
+      `Wir freuen uns, dich in unserer Community zu haben.\n` +
+      `Hier kannst du neue Leute kennenlernen, dich austauschen\n` +
+      `und einfach eine gute Zeit haben.\n\n` +
+      `${DIV}\n\u200b`,
     )
     .addFields(
       {
         name: "🎉  Mitglied",
-        value: `Du bist unser **${memberNumber.toLocaleString("de-DE")}. Mitglied!**`,
+        value: `Du bist unser **${ordinal(count)}. Mitglied!**`,
         inline: true,
       },
       {
         name: "🗓️  Account",
-        value: accountStr,
+        value: accountAge(member.user.createdTimestamp),
         inline: true,
       },
       {
-        name: "🚀  Erste Schritte",
+        name: "\u200b",
+        value: "\u200b",
+        inline: true,
+      },
+      {
+        name: "〢 🚀  Erste Schritte",
         value:
-          "→ Lies die **Serverregeln** durch\n" +
-          "→ Verifiziere dich um Zugang zu erhalten\n" +
-          "→ Stell dich gerne kurz vor!",
+          "╰ Lies die **Serverregeln** und akzeptiere sie\n" +
+          "╰ Verifiziere dich um Zugang zu erhalten\n" +
+          "╰ Stell dich gerne kurz vor!\n" +
+          "╰ Bei Fragen → Ticket öffnen",
         inline: false,
       },
     )
-    .setFooter({
-      text: `${guild.name} • Willkommen in unserer Community!`,
-      iconURL: guild.iconURL() ?? undefined,
-    })
+    .setFooter({ text: `${guild.name} • Willkommen in unserer Community!`, iconURL })
     .setTimestamp();
 }
 
 function buildWelcomeDmEmbed(member: GuildMember, customMessage?: string): EmbedBuilder {
   const guild = member.guild;
-  const memberNumber = guild.memberCount;
-  const accountAgeDays = Math.floor((Date.now() - member.user.createdTimestamp) / 86_400_000);
-  const accountStr = accountAgeDays === 0 ? "Heute erstellt" : `vor ${accountAgeDays} Tag(en) erstellt`;
+  const count = guild.memberCount;
+  const iconURL = guild.iconURL({ size: 256 }) ?? undefined;
 
   if (customMessage) {
     return new EmbedBuilder()
       .setColor(0x5865f2)
       .setTitle(`Willkommen auf ${guild.name}!`)
-      .setThumbnail(guild.iconURL({ size: 256 }) ?? null)
+      .setThumbnail(iconURL ?? null)
       .setDescription(
         customMessage
           .replace("{user}", `<@${member.id}>`)
           .replace("{username}", member.user.username)
           .replace("{server}", guild.name)
-          .replace("{membercount}", memberNumber.toLocaleString("de-DE")),
+          .replace("{membercount}", ordinal(count)),
       )
-      .setFooter({ text: guild.name, iconURL: guild.iconURL() ?? undefined })
+      .setFooter({ text: guild.name, iconURL })
       .setTimestamp();
   }
 
   return new EmbedBuilder()
     .setColor(0x5865f2)
-    .setAuthor({ name: guild.name, iconURL: guild.iconURL() ?? undefined })
+    .setAuthor({ name: guild.name, iconURL })
     .setTitle(`Willkommen auf ${guild.name}`)
-    .setThumbnail(guild.iconURL({ size: 256 }) ?? null)
+    .setThumbnail(iconURL ?? null)
     .setDescription(
-      `Schön, dass du hier bist – wir freuen uns, dich in unserer Community zu haben. ` +
+      `Schön, dass du hier bist – wir freuen uns, dich in unserer Community zu haben.\n` +
       `Hier kannst du dich mit anderen austauschen, neue Leute kennenlernen und einfach eine gute Zeit haben.\n\n` +
       `Achte bitte auf einen respektvollen Umgang miteinander und hab Spaß beim Mitmachen!\n\n` +
-      `Wenn du Fragen hast, steht dir das Team jederzeit zur Verfügung.`,
+      `Wenn du Fragen hast, steht dir das Team jederzeit zur Verfügung.\n\n` +
+      `${DIV}`,
     )
     .addFields(
-      { name: "🎉  Mitglied", value: `Du bist unser **${memberNumber.toLocaleString("de-DE")}. Mitglied!**`, inline: true },
-      { name: "🗓️  Account", value: accountStr, inline: true },
+      { name: "🎉  Mitglied", value: `Du bist unser **${ordinal(count)}. Mitglied!**`, inline: true },
+      { name: "🗓️  Account", value: accountAge(member.user.createdTimestamp), inline: true },
       {
-        name: "🚀  Erste Schritte",
-        value: "→ Lies die Serverregeln durch\n→ Verifiziere dich um Zugang zu erhalten",
+        name: "〢 🚀  Erste Schritte",
+        value:
+          "╰ Lies die Serverregeln durch\n" +
+          "╰ Verifiziere dich für Zugang\n" +
+          "╰ Viel Spaß auf dem Server!",
         inline: false,
       },
     )
-    .setFooter({ text: `${guild.name} • Willkommen in unserer Community!`, iconURL: guild.iconURL() ?? undefined })
+    .setFooter({ text: `${guild.name} • Willkommen in unserer Community!`, iconURL })
     .setTimestamp();
 }
 
@@ -116,7 +133,9 @@ export async function handleMemberWelcome(member: GuildMember): Promise<void> {
   if (config.welcome.channelId) {
     const channel = member.guild.channels.cache.get(config.welcome.channelId) as TextChannel | undefined;
     if (channel) {
-      await channel.send({ content: `<@${member.id}>`, embeds: [buildWelcomeEmbed(member)] }).catch(() => null);
+      await channel
+        .send({ content: `<@${member.id}>`, embeds: [buildWelcomeEmbed(member)] })
+        .catch(() => null);
     }
   }
 }

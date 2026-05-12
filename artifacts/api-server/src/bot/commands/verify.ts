@@ -19,7 +19,7 @@ export const verifyCommand = new SlashCommandBuilder()
   .addSubcommand((sub) =>
     sub
       .setName("panel")
-      .setDescription("Verifizierungs-Panel in einem Channel posten")
+      .setDescription("Verifizierungs-Panel posten")
       .addChannelOption((opt) =>
         opt
           .setName("channel")
@@ -33,74 +33,75 @@ export async function handleVerifyCommand(
   interaction: ChatInputCommandInteraction,
 ): Promise<void> {
   if (!interaction.guild) return;
+  if (interaction.options.getSubcommand() !== "panel") return;
 
-  const sub = interaction.options.getSubcommand();
+  const channelOpt = interaction.options.getChannel("channel");
+  const targetId = channelOpt?.id ?? interaction.channelId;
+  const targetChannel = interaction.guild.channels.cache.get(targetId) as TextChannel | undefined;
 
-  if (sub === "panel") {
-    const channelOption = interaction.options.getChannel("channel");
-    const targetChannelId = channelOption?.id ?? interaction.channelId;
-    const targetChannel = interaction.guild.channels.cache.get(targetChannelId) as TextChannel | undefined;
+  if (!targetChannel || !("send" in targetChannel)) {
+    await interaction.reply({ embeds: [errorEmbed("Channel nicht gefunden.")], flags: MessageFlags.Ephemeral });
+    return;
+  }
 
-    if (!targetChannel || !("send" in targetChannel)) {
-      await interaction.reply({
-        embeds: [errorEmbed("Channel nicht gefunden oder keine Schreibrechte.")],
-        flags: MessageFlags.Ephemeral,
-      });
-      return;
-    }
+  const iconURL = interaction.guild.iconURL({ size: 256 }) ?? undefined;
+  const name = interaction.guild.name;
 
-    const iconURL = interaction.guild.iconURL() ?? undefined;
+  const embed = new EmbedBuilder()
+    .setColor(0x5865f2)
+    .setAuthor({ name, iconURL })
+    .setThumbnail(iconURL ?? null)
+    .setTitle("🛡️  Server-Verifizierung")
+    .setDescription(
+      `Um Zugang zum gesamten Server zu erhalten, musst du dich verifizieren.\n` +
+      `Klicke auf den Button unten und folge den Anweisungen.\n\n` +
+      `▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n\u200b`,
+    )
+    .addFields(
+      {
+        name: "〢 ✅  Was bekommst du?",
+        value:
+          "╰ Zugang zu allen öffentlichen Channels\n" +
+          "╰ Volle Teilnahme am Server\n" +
+          "╰ Chat, Voice & Reaktionen freischalten",
+        inline: true,
+      },
+      {
+        name: "〢 🔒  Warum verifizieren?",
+        value:
+          "╰ Schutz vor Bots & Raids\n" +
+          "╰ Sichere, aktive Community\n" +
+          "╰ Spam & Trolls fernhalten",
+        inline: true,
+      },
+      {
+        name: "\u200b",
+        value:
+          `▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n` +
+          `📋  Lies zuerst die **Serverregeln** durch.\nMit der Verifizierung stimmst du diesen zu.`,
+        inline: false,
+      },
+    )
+    .setFooter({ text: `${name} • Einmalige Verifizierung`, iconURL })
+    .setTimestamp();
 
-    const embed = new EmbedBuilder()
-      .setColor(0x5865f2)
-      .setAuthor({ name: interaction.guild.name, iconURL })
-      .setTitle("🛡️  Server-Verifizierung")
-      .setThumbnail(iconURL ?? null)
-      .setDescription(
-        "Um Zugang zum gesamten Server zu erhalten, musst du dich verifizieren. " +
-        "Klicke auf den Button unten und folge den Anweisungen.\n\u200b",
-      )
-      .addFields(
-        {
-          name: "✅  Was passiert danach?",
-          value: "Nach der Verifizierung erhältst du Zugang zu allen öffentlichen Channels und kannst aktiv am Server teilnehmen.",
-          inline: false,
-        },
-        {
-          name: "🔒  Warum verifizieren?",
-          value: "Die Verifizierung dient dazu, Bots und Spam von unserem Server fernzuhalten und eine sichere Community zu gewährleisten.",
-          inline: false,
-        },
-        {
-          name: "📋  Hinweis",
-          value: "Lies bitte vorher die Serverregeln durch. Mit der Verifizierung stimmst du unseren Regeln zu.",
-          inline: false,
-        },
-      )
-      .setFooter({
-        text: `${interaction.guild.name} • Einmalige Verifizierung`,
-        iconURL,
-      })
-      .setTimestamp();
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId("verify_click")
+      .setLabel("✅  Jetzt verifizieren")
+      .setStyle(ButtonStyle.Success),
+  );
 
-    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder()
-        .setCustomId("verify_click")
-        .setLabel("✅  Jetzt verifizieren")
-        .setStyle(ButtonStyle.Success),
-    );
-
-    try {
-      await targetChannel.send({ embeds: [embed], components: [row] });
-      await interaction.reply({
-        embeds: [successEmbed(`Verifizierungs-Panel in <#${targetChannelId}> gepostet!`)],
-        flags: MessageFlags.Ephemeral,
-      });
-    } catch {
-      await interaction.reply({
-        embeds: [errorEmbed("Fehler beim Posten. Überprüfe meine Berechtigungen in dem Channel.")],
-        flags: MessageFlags.Ephemeral,
-      });
-    }
+  try {
+    await targetChannel.send({ embeds: [embed], components: [row] });
+    await interaction.reply({
+      embeds: [successEmbed(`Verifizierungs-Panel in <#${targetId}> gepostet!`)],
+      flags: MessageFlags.Ephemeral,
+    });
+  } catch {
+    await interaction.reply({
+      embeds: [errorEmbed("Fehler beim Posten. Überprüfe meine Berechtigungen.")],
+      flags: MessageFlags.Ephemeral,
+    });
   }
 }

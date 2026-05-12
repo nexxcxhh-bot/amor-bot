@@ -7,7 +7,6 @@ export const COLORS = {
   warning: 0xfee75c,
   danger: 0xed4245,
   neutral: 0x2b2d31,
-  purple: 0x9b59b6,
   dark: 0x23272a,
 } as const;
 
@@ -17,35 +16,48 @@ const DIV = "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬�
 
 export function ticketPanelEmbed(guildName: string, iconURL?: string | null): EmbedBuilder {
   return new EmbedBuilder()
-    .setColor(0x5865f2)
+    .setColor(COLORS.primary)
     .setAuthor({ name: guildName, iconURL: iconURL ?? undefined })
     .setTitle("🎫  Support Ticket")
     .setDescription(
-      "Brauchst du Hilfe oder hast ein Anliegen?\n" +
-      "Klicke auf den Button unten, um ein Ticket zu öffnen.\n\n" +
-      "Unser Team wird sich so schnell wie möglich bei dir melden.\n\n" +
-      `${DIV}`,
+      `Brauchst du **Hilfe** oder hast ein **Anliegen**?\n` +
+      `Unser Team steht dir zur Verfügung – klicke einfach auf den Button.\n\n${DIV}\n\u200b`,
     )
-    .addFields({
-      name: "📋  Wie funktioniert es?",
-      value:
-        "> **①** Klicke auf **Ticket erstellen**\n" +
-        "> **②** Ein privater Channel wird für dich geöffnet\n" +
-        "> **③** Beschreibe dein Anliegen\n" +
-        "> **④** Warte auf eine Antwort vom Team",
-    })
-    .setFooter({ text: `${guildName} • Bitte öffne nur ein Ticket zur gleichen Zeit.`, iconURL: iconURL ?? undefined })
+    .addFields(
+      {
+        name: "〢 📋  Wie funktioniert es?",
+        value:
+          "╰ **①** Klicke auf **Ticket erstellen**\n" +
+          "╰ **②** Ein privater Channel wird geöffnet\n" +
+          "╰ **③** Beschreibe dein Anliegen\n" +
+          "╰ **④** Das Team meldet sich schnellstmöglich",
+        inline: true,
+      },
+      {
+        name: "〢 ℹ️  Wichtig",
+        value:
+          "╰ Nur **ein** Ticket gleichzeitig\n" +
+          "╰ Kein Spam oder sinnlose Tickets\n" +
+          "╰ Beschreibe dein Problem genau\n" +
+          "╰ Sei geduldig — wir helfen dir",
+        inline: true,
+      },
+      { name: "\u200b", value: DIV },
+    )
+    .setFooter({ text: `${guildName} • Support-System`, iconURL: iconURL ?? undefined })
     .setTimestamp();
 }
 
 export function ticketOpenedEmbed(userMention: string, ticketNumber: number): EmbedBuilder {
   return new EmbedBuilder()
-    .setColor(0x5865f2)
+    .setColor(COLORS.primary)
     .setTitle(`🎫  Ticket #${String(ticketNumber).padStart(4, "0")}`)
     .setDescription(
-      `Willkommen ${userMention}! Ein Teammitglied wird sich so schnell wie möglich um dich kümmern.\n\n` +
-      `Bitte beschreibe dein Anliegen so detailliert wie möglich.\n\n` +
-      `Zum Schließen des Tickets klicke auf **🔒 Ticket schließen**.`,
+      `Willkommen ${userMention}!\n\n` +
+      `Ein Teammitglied wird sich so schnell wie möglich um dich kümmern.\n` +
+      `Bitte beschreibe dein Anliegen so **detailliert wie möglich**.\n\n` +
+      `${DIV}\n` +
+      `> Zum Schließen des Tickets → **🔒 Ticket schließen**`,
     )
     .setFooter({ text: "Support Ticket System" })
     .setTimestamp();
@@ -65,16 +77,16 @@ export function ticketClosedEmbed(closedByMention: string): EmbedBuilder {
 
 export function feedbackEmbed(): EmbedBuilder {
   return new EmbedBuilder()
-    .setColor(0x5865f2)
+    .setColor(COLORS.primary)
     .setTitle("⭐  Wie war dein Support-Erlebnis?")
     .setDescription(
-      `Dein Ticket wurde geschlossen. Wir würden uns über dein Feedback freuen!\n\n` +
+      `Dein Ticket wurde geschlossen.\nWir würden uns über dein Feedback freuen!\n\n` +
       `${DIV}\n\n` +
-      `**⭐** — Sehr schlecht\n` +
-      `**⭐⭐** — Schlecht\n` +
-      `**⭐⭐⭐** — In Ordnung\n` +
-      `**⭐⭐⭐⭐** — Gut\n` +
-      `**⭐⭐⭐⭐⭐** — Ausgezeichnet\n\n` +
+      `> ⭐ — Sehr schlecht\n` +
+      `> ⭐⭐ — Schlecht\n` +
+      `> ⭐⭐⭐ — In Ordnung\n` +
+      `> ⭐⭐⭐⭐ — Gut\n` +
+      `> ⭐⭐⭐⭐⭐ — Ausgezeichnet\n\n` +
       `*Klicke auf eine Bewertung:*`,
     )
     .setFooter({ text: "Dein Feedback hilft uns, uns zu verbessern." });
@@ -92,7 +104,7 @@ export function feedbackReceivedEmbed(userId: string, rating: number, ticketNumb
     .addFields(
       { name: "Nutzer", value: `<@${userId}>`, inline: true },
       { name: "Ticket", value: `#${String(ticketNumber).padStart(4, "0")}`, inline: true },
-      { name: "Bewertung", value: `${stars}  (${label})`, inline: false },
+      { name: "Bewertung", value: `${stars}  **(${label})**`, inline: false },
     )
     .setFooter({ text: "Ticket Feedback System" })
     .setTimestamp();
@@ -113,37 +125,17 @@ export function settingsEmbed(guildName: string, config: GuildConfig): EmbedBuil
         name: "🎫  Ticket System",
         value: [
           `Kategorie: ${ch(config.ticketCategoryId)}`,
-          `Log-Channel: ${ch(config.ticketLogChannelId)}`,
-          `Support-Rolle: ${role(config.ticketSupportRoleId)}`,
-          `Feedback-Channel: ${ch(config.feedbackChannelId)}`,
-        ].join("\n"),
-        inline: false,
-      },
-      {
-        name: "🛡️  Raid-Schutz",
-        value: [
-          bool(config.raidProtection.enabled),
-          `${config.raidProtection.joinThreshold} Joins / ${config.raidProtection.timeWindowSeconds}s`,
-          `Aktion: **${config.raidProtection.action}**`,
+          `Log: ${ch(config.ticketLogChannelId)}`,
+          `Rolle: ${role(config.ticketSupportRoleId)}`,
         ].join("\n"),
         inline: true,
       },
       {
-        name: "💣  Nuke-Schutz",
+        name: "🛡️  Schutz",
         value: [
-          bool(config.nukeProtection.enabled),
-          `Channels: ${config.nukeProtection.channelDeleteThreshold}`,
-          `Rollen: ${config.nukeProtection.roleDeleteThreshold}`,
-          `Aktion: **${config.nukeProtection.action}**`,
-        ].join("\n"),
-        inline: true,
-      },
-      {
-        name: "🤬  Toxic-Filter",
-        value: [
-          bool(config.toxicFilter.enabled),
-          `Timeout: ${config.toxicFilter.timeoutMinutes} Min.`,
-          `Custom Wörter: ${config.toxicFilter.customWords.length}`,
+          `Raid: ${bool(config.raidProtection.enabled)}`,
+          `Nuke: ${bool(config.nukeProtection.enabled)}`,
+          `Toxic: ${bool(config.toxicFilter.enabled)}`,
         ].join("\n"),
         inline: true,
       },
@@ -152,7 +144,7 @@ export function settingsEmbed(guildName: string, config: GuildConfig): EmbedBuil
     .setTimestamp();
 }
 
-// ─── Alert Embeds ──────────────────────────────────────────────────────────────
+// ─── Utility Embeds ────────────────────────────────────────────────────────────
 
 export function successEmbed(description: string): EmbedBuilder {
   return new EmbedBuilder().setColor(COLORS.success).setDescription(`✅  ${description}`);
