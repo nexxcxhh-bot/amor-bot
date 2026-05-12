@@ -2,17 +2,17 @@
   "guilds": {
     "1492604770329034803": {
       "raidProtection": {
-        "enabled": false,
-        "joinThreshold": 10,
-        "timeWindowSeconds": 10,
-        "action": "kick"
+        "enabled": true,
+        "joinThreshold": 6,
+        "timeWindowSeconds": 1,
+        "action": "ban"
       },
       "nukeProtection": {
-        "enabled": false,
-        "channelDeleteThreshold": 3,
-        "roleDeleteThreshold": 2,
-        "banThreshold": 5,
-        "action": "kick"
+        "enabled": true,
+        "channelDeleteThreshold": 6,
+        "roleDeleteThreshold": 6,
+        "banThreshold": 10,
+        "action": "ban"
       },
       "toxicFilter": {
         "enabled": false,
@@ -27,11 +27,30 @@
       "verify": {
         "enabled": true,
         "roleId": "1492604770329034808"
-      }
+      },
+      "ticketSupportRoleId": "1500609082544095403",
+      "ticketLogChannelId": "1500422124647747764",
+      "feedbackChannelId": "1492604772094705831",
+      "statsCategoryId": "1503342783971463219",
+      "memberCountChannelId": "1503342784898269244",
+      "botCountChannelId": "1503342785959432242",
+      "ticketCountChannelId": "1503342786710212649",
+      "ticketCategoryId": "1503343843096137819"
     }
   },
-  "tickets": {},
-  "ticketCounters": {},
+  "tickets": {
+    "1503476997215621354": {
+      "channelId": "1503476997215621354",
+      "userId": "1213119956519092298",
+      "guildId": "1492604770329034803",
+      "createdAt": 1778527250226,
+      "status": "open",
+      "ticketNumber": 3
+    }
+  },
+  "ticketCounters": {
+    "1492604770329034803": 3
+  },
   "pendingFeedback": {},
   "giveaways": {
     "1503339745470709871": {
@@ -42,16 +61,67 @@
       "winners": 1,
       "endsAt": 1778526925692,
       "hostId": "1377775973453398157",
+      "ended": true,
+      "winnerIds": [
+        "1378735420417773698"
+      ]
+    },
+    "1503487394878324786": {
+      "messageId": "1503487394878324786",
+      "channelId": "1492604771654434999",
+      "guildId": "1492604770329034803",
+      "prize": "Logitech G PRO X2 SUPERSTRIKE",
+      "winners": 1,
+      "endsAt": 1779134528269,
+      "hostId": "1503462848175804457",
+      "ended": false,
+      "winnerIds": []
+    },
+    "1503491972889837609": {
+      "messageId": "1503491972889837609",
+      "channelId": "1492604771654434999",
+      "guildId": "1492604770329034803",
+      "prize": "Logitech G PRO X2 SUPERSTRIKE",
+      "winners": 1,
+      "endsAt": 1779135619788,
+      "hostId": "1378735420417773698",
       "ended": false,
       "winnerIds": []
     }
   },
   "giveawayEntries": {
     "1503339745470709871": [
-      "1377775973453398157",
       "829272054347726858",
       "818493218492645437",
-      "1213119956519092298"
+      "1377775973453398157",
+      "1378443329821212782",
+      "1213119956519092298",
+      "1290709863881773139",
+      "1084845375254450317",
+      "1378735420417773698",
+      "1060633656764399757",
+      "1075783702069645364",
+      "1347654052397191278"
+    ],
+    "1503487394878324786": [
+      "1282554463550439444",
+      "1503462848175804457",
+      "818493218492645437",
+      "1084845375254450317",
+      "1060633656764399757"
+    ],
+    "1503491972889837609": [
+      "1378735420417773698",
+      "1347654052397191278",
+      "1257325016941596676",
+      "1430191736344543394",
+      "1075783702069645364",
+      "1282554463550439444",
+      "1213119956519092298",
+      "947268348817866873",
+      "818493218492645437",
+      "1060633656764399757",
+      "1350630268259668092"
     ]
   }
 }
